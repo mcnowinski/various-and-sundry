@@ -1,0 +1,14 @@
+#Fat Jar Configuration File
+#Fri Dec 06 15:12:36 CET 2013
+onejar.license.required=true
+manifest.classpath=
+manifest.removesigners=true
+onejar.checkbox=false
+jarname=MakeDirectory.jar
+manifest.mergeall=true
+manifest.mainclass=com.astrofizzbizz.utilities.MakeDirectory
+manifest.file=<createnew>
+jarname.isextern=false
+onejar.expand=
+excludes=<po|Utilities>~com/~astrofizzbizz/~utilities/~files/;<po|Utilities>~com/~astrofizzbizz/~utilities/~myjframe/;<po|Utilities>~com/~astrofizzbizz/~utilities/~simplewebbrowser/;<po|Utilities>~com/~astrofizzbizz/~utilities/~spectrogramPlotter/;<po|Utilities>~com/~astrofizzbizz/~utilities/~xyplot/;<po|Utilities>~com/~astrofizzbizz/~utilities/~CodeUpdateInformer$CodeUpdateInformerActionListeners.class;<po|Utilities>~com/~astrofizzbizz/~utilities/~CodeUpdateInformer.class;<po|Utilities>~com/~astrofizzbizz/~utilities/~DateUtilties.class;<po|Utilities>~com/~astrofizzbizz/~utilities/~DpmSwingUtilities.class;<po|Utilities>~com/~astrofizzbizz/~utilities/~FileChooserFilter.class;<po|Utilities>~com/~astrofizzbizz/~utilities/~FileChooserWrapper.class;<po|Utilities>~com/~astrofizzbizz/~utilities/~FileReaderUtilities.class;<po|Utilities>~com/~astrofizzbizz/~utilities/~StatusPanel.class;<po|Utilities>~com/~astrofizzbizz/~utilities/~WaitFrame.class;<jar|jcommon-1.0.14.jar>;<jar|jfreechart-1.0.11.jar>
+includes=

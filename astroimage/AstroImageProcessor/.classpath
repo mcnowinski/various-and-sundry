@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="src" path="src"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/NumericalRecipes"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/Pixie"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/Utilities"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/jsky"/>
+	<classpathentry kind="lib" path="C:/Users/mcnow/ownCloud/skynet/astroimage/nom-tam-fits-1.15.1.jar"/>
+	<classpathentry kind="output" path="bin"/>
+</classpath>

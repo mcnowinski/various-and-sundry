@@ -1,0 +1,14 @@
+#Fat Jar Configuration File
+#Thu Nov 14 11:46:21 CET 2013
+onejar.license.required=true
+manifest.classpath=
+manifest.removesigners=true
+onejar.checkbox=false
+jarname=SingleSimpleImageProcess.jar
+manifest.mergeall=true
+manifest.mainclass=com.astrofizzbizz.pixie.SingleSimpleImageProcess
+manifest.file=<createnew>
+jarname.isextern=false
+onejar.expand=
+excludes=<jar|jcommon-1.0.14.jar>;<jar|jfreechart-1.0.11.jar>
+includes=
