@@ -4,6 +4,7 @@ import math
 import subprocess
 import re
 import sys
+import string
 from decimal import Decimal
 from astropy.io import fits
 from astropy import wcs
@@ -55,7 +56,11 @@ log=open(log_fname, 'a+')
 #get a list of all FITS files in the input directory	
 im=glob.glob(input_path+'*.fits')+glob.glob(input_path+'*.fit')
 #loop through all qualifying files and perform plate-solving
-for new in sorted(im):  
+for new in sorted(im):
+    #remove spaces from filename
+    new_nospace = string.replace(new, ' ', '_')
+    os.rename(new, new_nospace)
+    new = new_nospace
     if(solve_field == True):
         logme("\nSolving %s"%(new))
         #pull out RA/DEC from the FITS header, if they exist
@@ -158,7 +163,7 @@ for new in sorted(im):
     output_file = output_file.rsplit('/',1)[1]
     output_file = output_path+output_file
     logme("Writing solution to "+output_file)
-    os.system("mv %s.new "%(new.rsplit('.',1)[0])+output_file)
+    os.system('mv %s.new %s'%(new.rsplit('.',1)[0],output_file))
     
     #remove COMMENT and HISTORY lines to help with MPO Canopus crashes
     if(remove_comment_history==True):
@@ -233,7 +238,7 @@ if(add_date_to_fname == True):
         os.mkdir(output_path+session)
     except:
         pass
-    os.system("mv %s*.fits %s%s"%(output_path,output_path,session))
+    os.system('mv %s*.fits %s%s'%(output_path,output_path,session))
     logme("Created new session. Moved .fits files to %s%s."%(output_path,session))
 
 log.close()    

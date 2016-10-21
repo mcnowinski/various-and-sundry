@@ -1,0 +1,73 @@
+#!/bin/bash
+
+SUCCESS=0
+
+#send text notification to Slack #seo9000 channel
+#parameter is $1=message, e.g. alert "This is a test!"
+function alert {
+    local MESSAGE="`date -u +"%m-%d-%Y %H:%M:%S"` $1"
+    slackalert "$MESSAGE"
+    echo $MESSAGE
+    debug "$1"
+}
+
+#upload image to Slack #seo9001 channel
+#parameter is $1=filepath, e.g. preview <filepath> <message (optional)>
+function preview {
+    stiffy "$1" "$1.tif"
+    convert -resize 50% -normalize -quality 75 "$1.tif" "$1.tif.jpg"
+    (slackpreview "$1.tif.jpg" "$1"; rm "$1.tif"; rm "$1.tif.jpg") &
+}
+
+#send text notification to Slack #seo9001 channel
+#parameter is $1=message, e.g. debug "This is a test!"
+function debug {
+    local MESSAGE="`date -u +"%m-%d-%Y %H:%M:%S"` $1"
+    slackdebug "$MESSAGE"
+    #echo $MESSAGE
+}
+
+#take image
+#parameters are $1=time, $2=binning, $3="dark" or "", $4=outfile
+function getImage {
+    SUCCESS=1
+    image time=$1 bin=$2 $3 outfile=$4
+    if [ $? -eq 0 ]
+    then
+        debug "Got image ($4)."
+        preview "$4" "$4"
+#echo "Got image ($4)." > /dev/null
+    else
+        alert "Error. Image command failed ($4)."
+        SUCCESS=0
+    fi
+}
+
+#check parameters
+if [ $# -ne 2 ]; then
+	echo "This routine obtains bias calibration frames"
+    echo "Usage: bloop <number of frames> <binning>"
+    exit 1
+fi
+
+NUM_BIAS=$1
+BINNING=$2
+EXPOSURE_SEC=0.01
+COUNT=0
+
+#not really necessary, but why not
+pfilter clear
+
+#get bias frames
+alert "Taking $NUM_BIAS bias frames (bin=$BINNING, time=$EXPOSURE_SEC)..."
+for (( i=1; i<=$NUM_BIAS; i++ ))
+do
+  getImage $EXPOSURE_SEC $BINNING dark `date -u +"%Y%m%d.%H%M%S%3N"`.`printf "%03d" $COUNT`.bias.$BINNING.$EXPOSURE_SEC.fits
+  if [ $SUCCESS -eq 1 ]
+  then
+    #echo -e "`date -u +"%m-%d-%Y %H:%M:%S"` Bias frame (#=`printf "%03d" $COUNT`) complete."
+	COUNT=$((COUNT+1))
+  fi
+done
+
+alert "Bias frame sequence complete. Obtained $COUNT bias frames."
