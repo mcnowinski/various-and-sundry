@@ -89,7 +89,7 @@ tx track on
 checkAlt
 
 #get the target images
-alert "Taking $SET_SIZE images (bin=$BINNING, time=$EXPOSURE_SEC)..."
+alert "Taking $SET_SIZE image(s) (bin=$BINNING, time=$EXPOSURE_SEC)..."
 for (( k=1; k<=$SET_SIZE; k++ ))
 do
   checkSlit
@@ -106,4 +106,4 @@ do
   tx track on > /dev/null
 done
 
-alert "Image sequence complete. Obtained $COUNT images."
+alert "Image sequence complete. Obtained $COUNT image(s)."

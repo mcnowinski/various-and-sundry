@@ -18,15 +18,15 @@ def logme( str ):
    print str
    return
 
-#check command line parameters
-if len(sys.argv) > 2:
-    print 'usage: auffset <RA true (HH:MM:SS.SS, optional)> <DEC true (DD:MM:SS.SS, optional)>'
-    sys.exit(1)
+##check command line parameters
+#if len(sys.argv) > 3:
+#    print 'usage: auffset <RA true (HH:MM:SS.SS, optional)> <DEC true (DD:MM:SS.SS, optional)>'
+#    sys.exit(1)
 
 #get target ra and dec from command line, if available
 ra_target = None
 dec_target = None
-if len(sys.argv) == 2:
+if len(sys.argv) >= 3:
     #convert to decimal degrees
     ra_target = coord.Angle(sys.argv[1], unit=u.hour).degree
     dec_target = coord.Angle(sys.argv[2], unit=u.deg).degree
@@ -100,11 +100,11 @@ while(ra_offset > min_ra_offset and dec_offset > min_dec_offset and iteration < 
     ra_offset=float(ra_target)-float(RA_image)
     dec_offset=float(dec_target)-float(DEC_image)
 
-    if(ra_offset <= max_ra_offset and dec_offset <=max_dec_offset):
-        os.system('tx offset ra=%f dec=%f' % (-ra_offset, -dec_offset))
-        print "Offset complete (tx offset ra=%f dec=%f)." % (-ra_offset, -dec_offset)
+    if(abs(ra_offset) <= max_ra_offset and abs(dec_offset) <=max_dec_offset):
+        os.system('tx offset ra=%f dec=%f' % (ra_offset, dec_offset))
+        print "Offset complete (tx offset ra=%f dec=%f)." % (ra_offset, dec_offset)
     else:
-        print "Error. Calculated offsets too large (tx offset ra=%f dec=%f)!" % (-ra_offset, -dec_offset)   
+        print "Error. Calculated offsets too large (tx offset ra=%f dec=%f)!" % (ra_offset, dec_offset)   
         sys.exit(1)
     #hms = coord.Angle(RA_image, unit=u.degree).hms
     #dms = coord.Angle(DEC_image, unit=u.degree).dms

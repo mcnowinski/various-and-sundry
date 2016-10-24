@@ -20,12 +20,14 @@ set fudge=1.13
 set daz=90
 set SORTORDER="DESC"
 
-set picids = (175 275 255 235 245 225 265 365 465)
-set bins = (1 2 2 2 2 2 2 3 4)
+#set picids = (175 275 255 235 245 225 165 265)
+set picids = (175 275 155 135 145 125 255 235 165 245 225 265 365)
+set bins = (1 2 1 1 1 1 2 2 1 2 2 2 3)
 #h-alpha=7, clear=6, z-band=5, i-band=4, r-band=3, g-band=2, u-band=1
-#h-alpha h-alpha z-band r-band i-band g-band clear clear clear
-set filter_nums = (7 7 5 3 4 2 6 6 6)
-set counts = (5 5 5 5 5 5 5 5 5)
+#h-alpha h-alpha z-band r-band i-band g-band clear clear
+set filter_nums = (7 7 5 3 4 2 5 3 6 4 2 6 6)
+#set counts = (5 5 5 5 5 5 5 5 5)
+set counts = (1 1 5 5 5 5 5 5 5 5 5 5 5)
 
 #prepare the observatory for observations
 openup logid=$logid 
@@ -83,7 +85,9 @@ foreach picid ($picids)
 		echo image time=$exptime bin=$bin filter=`pfilter` 
 		image time=$exptime bin=$bin notime 
 		if ($status) exit
-		#set bias=`findcal image bias` 
+        #set bias=~/bin/bias.$bin.fits
+        #echo $bias
+		##set bias=`findcal image bias` 
 		#sub image $bias 
 		#if ($status) then
 		#	set msg="skyflat: sub error"
