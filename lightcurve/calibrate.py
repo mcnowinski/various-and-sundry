@@ -36,15 +36,15 @@ output_suffix='.calibrated'
 #dark='./darks/dark.fits'
 #or folder with darks *with* ending forward slash
 have_dark = True
-dark_path='./darks/'
+dark_path='./dark/'
 #master bias frame
 #bias='./bias/bias.fits'
 #or folder with bias *with* ending forward slash
 have_bias = True
-bias_path='./bias/bias.fits'
+bias_path='./bias/'
 #master flat frame
 have_flat = True
-flat_path='./flats/flat.fits'
+flat_path='./flat/'
 #or folder with flats *with* ending forward slash
 #flat=./flats/'
 #name of exposure variable in FITS header file
@@ -83,6 +83,9 @@ if(have_dark):
                 darks += ','+im[i]
             else:
                 darks = im[i]
+        #if there is just one, make it two of the same!
+        if (len(im) == 1):
+            darks += ','+im[0]
         dark_path += 'master/'
         try:
             os.mkdir(dark_path)
@@ -101,7 +104,7 @@ if(have_dark):
 #does bias frame exist?
 if(have_bias):
     if not (os.path.isfile(bias_path) or os.path.isdir(bias_path)):
-        print 'Error. Bias calibration frame(s) not found (%s).' % dark_path
+        print 'Error. Bias calibration frame(s) not found (%s).' % bias_path
         sys.exit(-1)    
     #open master bias
     if os.path.isfile(bias_path):
@@ -119,6 +122,9 @@ if(have_bias):
                 biases += ','+im[i]
             else:
                 biases = im[i]
+        #if there is just one, make it two of the same!
+        if (len(im) == 1):
+            biases += ','+im[0]
         bias_path += 'master/'
         try:
             os.mkdir(bias_path)
@@ -135,23 +141,48 @@ if(have_bias):
         #bias.write(bias_path, clobber=True)
     
 #does flat frame exist? 
-if(have_flat):  
-    if not os.path.isfile(flat_path):
-        print 'Error. Flat calibration frame not found (%s).' % flat_path
-        sys.exit(-1)
+if(have_flat):   
+    if not (os.path.isfile(flat_path) or os.path.isdir(flat_path)):
+        print 'Error. Flat calibration frame(s) not found (%s).' % flat_path
+        sys.exit(-1)    
     #open master flat
-    #assume flat is already bias corrected!
-    print 'Opening master flat (%s)...'%(flat_path)
-    flat = ccdproc.CCDData.read(flat_path, unit='adu', add_keyword=False, test=True)
-    hdulist = flat.to_hdu()
-  
+    if os.path.isfile(flat_path):
+        print 'Opening master flat (%s)...'%(flat_path)
+        flat = ccdproc.CCDData.read(flat_path, unit='adu')
+    else:
+        #create master flat frame
+        im=glob.glob(flat_path+'*.fits')+glob.glob(flat_path+'*.fit')
+        if(len(im) <= 0):
+            print 'Error. Flat calibration frame(s) not found (%s).' % flat_path
+            sys.exit(-1)
+        flats = None
+        for i in range(0,len(im)):
+            if(flats):
+                flats += ','+im[i]
+            else:
+                flats = im[i]
+        #if there is just one, make it two of the same!
+        if (len(im) == 1):
+            flats += ','+im[0]
+        flat_path += 'master/'
+        try:
+            os.mkdir(flat_path)
+        except:
+            pass    
+        flat_path += 'master_flat.fits'    
+        
+        print 'Creating master flat frame (%s)...'%(flat_path)
+        flat = ccdproc.combine(flats, method='median', unit='adu', add_keyword=False)
+        hdulist = flat.to_hdu()
+        hdulist.writeto(flat_path, clobber=True)
+    
 #get a list of all FITS files in the input directory
 fits_files=glob.glob(input_path+'*.fits')+glob.glob(input_path+'*.fit')
 #loop through all qualifying files and perform plate-solving
 print 'Calibrating images in %s' %input_path
 for fit_file in fits_files:   
     #open image
-    image = ccdproc.CCDData.read(fit_file, unit='adu')
+    image = ccdproc.CCDData.read(fit_file, unit='adu', relax=True)
 
     #subtract bias from image    
     if(have_bias):
