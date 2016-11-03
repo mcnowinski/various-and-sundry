@@ -52,7 +52,7 @@ fi
 
 NUM_BIAS=$1
 BINNING=$2
-EXPOSURE_SEC=0.01
+EXPOSURE_SEC=0.1
 COUNT=0
 
 #not really necessary, but why not
