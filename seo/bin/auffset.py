@@ -5,8 +5,8 @@ import subprocess
 import re
 import sys
 from decimal import Decimal
-#gain access to local astropy module
-sys.path.append('/home/mcnowinski/.local/lib/python2.7/')
+##gain access to local astropy module
+#sys.path.append('/home/mcnowinski/.local/lib/python2.7/')
 from astropy.io import fits
 from astropy import wcs
 from astropy.io.fits import getheader

@@ -1,7 +1,10 @@
 #!/bin/bash
 
+#get path to this script
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
 #command for plate solving, auto-offset script?
-AUFFSET="python ~/bin/auffset.py"
+AUFFSET="python $DIR/auffset.py"
 
 function point {
     #check parameters
@@ -11,10 +14,10 @@ function point {
         echo "Usage: pinpoint <ra> <dec>"
         exit 1
     fi
-    echo $1 $2
-    #tx track on > /dev/null 2>&1
-    #tx point ra=$1 dec=$2 > /dev/null 2>&1
-    #$AUFFSET $1 $2
+    #echo $1 $2
+    tx track on > /dev/null 2>&1
+    tx point ra=$1 dec=$2 > /dev/null 2>&1
+    $AUFFSET $1 $2
 }
 
 if [ -t 0 ]; then

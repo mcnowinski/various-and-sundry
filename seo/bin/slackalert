@@ -1,6 +1,7 @@
 #!/bin/bash
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-source slack.conf
+source $DIR/slack.conf
 
 # Usage: slackalert "<message>"
 if [ $# -ne 1 ]; then

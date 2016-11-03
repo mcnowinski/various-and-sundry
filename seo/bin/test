@@ -1,24 +1,5 @@
 #!/bin/bash
 
-#command for plate solving, auto-offset script?
-AUFFSET="python ~/bin/auffset.py"
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-function point {
-    #check parameters
-    if [ $# -lt 2 ]
-    then
-        echo "This routine precisely (pin) points the telescope."
-        echo "Usage: pinpoint <ra> <dec>"
-        exit 1
-    fi
-    echo $1 $2
-    #tx track on > /dev/null 2>&1
-    #tx point ra=$1 dec=$2 > /dev/null 2>&1
-    #$AUFFSET $1 $2
-}
-
-if [ -t 0 ]; then
-    point $*
-else
-    point `cat`
-fi
+echo $DIR
