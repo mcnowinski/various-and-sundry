@@ -45,6 +45,8 @@ dt_start = None
 dt_end = None
 session_count=1
 
+count = 0
+
 #does output directory exist? If not, create it
 try:
     os.mkdir(output_path)
@@ -57,6 +59,8 @@ log=open(log_fname, 'a+')
 im=glob.glob(input_path+'*.fits')+glob.glob(input_path+'*.fit')
 #loop through all qualifying files and perform plate-solving
 for new in sorted(im):
+    error_flag = False
+
     #remove spaces from filename
     new_nospace = string.replace(new, ' ', '_')
     os.rename(new, new_nospace)
@@ -90,7 +94,7 @@ for new in sorted(im):
             dec=decA
         
         #plate solve this image, using RA/DEC from FITS header
-        output = subprocess.check_output(solve_field_path + ' --no-verify --overwrite --downsample 2 --scale-units arcsecperpix --scale-low 0.55 --scale-high 2.0 --ra %s --dec %s --radius 1.0 --cpulimit 60 --no-plots '%(ra,dec)+'%s'%(new), shell=True)
+        output = subprocess.check_output(solve_field_path + ' --no-verify --no-fits2fits --overwrite --downsample 2 --guess-scale --ra %s --dec %s --radius 1.0 --cpulimit 30 --no-plots '%(ra,dec)+'%s'%(new), shell=True)
         log.write(output)
         #print output
         
@@ -136,6 +140,7 @@ for new in sorted(im):
             last_rotation_angle = rotation_angle				
         else:
             logme("Warning. Field rotation angle not found in solve-field output!")
+            continue
     
     #create final plate-solved FITS file
     if(add_date_to_fname == True):
@@ -147,7 +152,8 @@ for new in sorted(im):
             date_obs=h1['DATE-OBS']
         except KeyError:
             logme("Error! Observation date/time not found in FITS header for %s."%(new))
-            quit()
+            #quit()
+            continue
         if(dt_start == None):
             dt_start = parser.parse(date_obs)
             #print dt_start
@@ -164,6 +170,8 @@ for new in sorted(im):
     output_file = output_path+output_file
     logme("Writing solution to "+output_file)
     os.system('mv %s.new %s'%(new.rsplit('.',1)[0],output_file))
+    
+    count += 1
     
     #remove COMMENT and HISTORY lines to help with MPO Canopus crashes
     if(remove_comment_history==True):
@@ -240,5 +248,7 @@ if(add_date_to_fname == True):
         pass
     os.system('mv %s*.fits %s%s'%(output_path,output_path,session))
     logme("Created new session. Moved .fits files to %s%s."%(output_path,session))
+    
+logme("\nComplete. Processed %d of %d files."%(count, len(im)))
 
 log.close()    

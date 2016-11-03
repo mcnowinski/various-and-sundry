@@ -1,7 +1,7 @@
 #
 #calibrate.py
 #
-#calibrate fits images using darks and flats
+#calibrate fits images using darks, flats, and bias frames
 #corrected image = (image - bias - k(dark-bias))/flat
 #for k=1, i.e. image exp = dark exp, corrected image = (image - dark)/flat
 
