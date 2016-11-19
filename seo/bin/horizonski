@@ -1,0 +1,59 @@
+#!/bin/csh
+# script to determine a solar system position from the JPL Horizons database 
+# usage:    horizons number 
+# where the number is the Horizons ID code
+
+if ($#argv < 1) then
+	stderr "usage: horizons number [iso=] [debug] [help] [nosend]\n";
+	exit 1
+endif
+
+#set the command line options
+echo $* | grep -w -v debug > /dev/null
+set DEBUG=$status
+echo $* | grep -w  -v nosend > /dev/null
+set NOSEND=$status;
+set NAME=`echo $argv[1] | sed "s/ /%20/g"`
+set TMP=/tmp/`date -u +"%Y%m%d.%H%M%S%3N"`.horizons.tmp
+if ($DEBUG) echo debug=$DEBUG nosend=$NOSEND name="$NAME"
+
+#determine the site location
+set stat=`tx tel_status`
+set longitude=`echo $stat | getkey long`
+set latitude=`echo $stat | getkey lat`
+set elevation=`echo $stat | getkey elev`
+
+#set stime=`date -u +"%Y-%m-%d %H:%M"`
+set stime=`ut iso`
+set etime=`addiso $stime hours=24`
+set stime2=`echo $stime |sed s/T/%20/ | awk '{print substr($1,1,18)}' `
+set etime2=`echo $etime |sed s/T/%20/ | awk '{print substr($1,1,18)}' `
+
+#send the ephemeris request to server 
+# see http://ssd.jpl.nasa.gov/horizons_batch.cgi for details 
+# see also batchlong.txt for details 
+set URL="http://ssd.jpl.nasa.gov/horizons_batch.cgi?batch=1&COMMAND='$NAME'&MAKE_EPHEM='YES'&OBJ_DATA='NO'&TABLE_TYPE='OBSERVER'&COORD_TYPE='GEODETIC'&SITE_COORD='$longitude,$latitude,$elevation',&QUANTITIES='1,3'&STEP_SIZE='1'&START_TIME='$stime2'&STOP_TIME='$etime2'"
+
+if ($DEBUG) echo "$URL"
+
+if ($NOSEND == 0 ) then
+	curl -s -G "$URL"  > $TMP
+	if ($status) exit 1
+endif
+
+cat $TMP | grep "No matches found"  > /dev/null
+if ($status == 0 ) then
+	stderr horizons: "$NAME" not found
+	exit 1
+endif
+set coords=`cat $TMP | awk '(substr($1,3,3) == "SOE"){d = NR+1} (NR == d){print $0}'`
+if ($DEBUG) echo $coords
+
+set target=`cat $TMP | grep "Target body name" | awk '{print substr($0,18,32)}'`
+set ra=`echo $coords | awk "-F " '{print $3,$4,$5}' | sed "s/ /:/g"`
+set dec=`echo $coords | awk "-F " '{print $6,$7,$8}' | sed "s/ /:/g"`
+set dra=`echo $coords | awk "-F " '{printf "%.4f ", $9/3600.}'`
+set ddec=`echo $coords | awk "-F " '{printf "%.4f ", $10/3600.}'`
+echo $ra $dec 2000.0 "$target" dra=$dra ddec=$ddec
+
+rm $TMP

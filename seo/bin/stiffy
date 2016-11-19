@@ -6,4 +6,4 @@ if [ $# -ne 2 ]; then
     exit 1
 fi
 
-LD_LIBRARY_PATH=/home/mcnowinski/bin/giterdone/seo/bin /home/mcnowinski/bin/giterdone/seo/bin/stiff -c /home/mcnowinski/bin/giterdone/seo/bin/stiff.conf $1 -OUTFILE_NAME $2 > /dev/null 2>&1
+LD_LIBRARY_PATH=/home/mcnowinski/bin /home/mcnowinski/bin/stiff -c /home/mcnowinski/bin/stiff.conf $1 -OUTFILE_NAME $2 > /dev/null 2>&1

@@ -1,0 +1,87 @@
+#send text notification to Slack #seo9000 channel
+#parameter is $1=message, e.g. alert "This is a test!"
+function alert {
+    local MESSAGE="`date -u +"%m-%d-%Y %H:%M:%S"` $1"
+    slackalert "$MESSAGE"
+    echo $MESSAGE
+    debug "$1"
+}
+
+#upload image to Slack #seo9001 channel
+#parameter is $1=filepath, e.g. preview <filepath> <message (optional)>
+function preview {
+    stiffy "$1" "$1.tif"
+    convert -resize 50% -normalize -quality 75 "$1.tif" "$1.tif.jpg"
+    (slackpreview "$1.tif.jpg" "$1"; rm "$1.tif"; rm "$1.tif.jpg") &
+}
+
+#send text notification to Slack #seo9001 channel
+#parameter is $1=message, e.g. debug "This is a test!"
+function debug {
+    local MESSAGE="`date -u +"%m-%d-%Y %H:%M:%S"` $1"
+    slackdebug "$MESSAGE"
+    #echo $MESSAGE
+}
+
+function checkCCDTemp {
+  local MAX_CCD_TEMP=0
+  local CCD_TEMP=`tx ccd_status | grep -o 'tchip=[0-9\.\-]\+' | cut -c7-`
+  if [ ${CCD_TEMP%.*} -gt ${MAX_CCD_TEMP%.*} ]
+  then
+ 	alert "CCD not cooled (T=$CCD_TEMP). Cooling..."
+	ccd cool
+    sleep 3
+    local CCD_TEMP2=`tx ccd_status | grep -o 'tchip=[0-9\.\-]\+' | cut -c7-`
+    #echo $CCD_TEMP2
+    if [ ${CCD_TEMP2%.*} -gt ${MAX_CCD_TEMP%.*} ]
+    then
+      alert "Error. CCD cooling failed. Image sequence aborted."
+      exit 1
+    else
+      debug "CCD temperature is $CCD_TEMP2 degrees."
+    fi
+  else
+    debug "CCD temperature is $CCD_TEMP degrees."
+  fi
+}
+
+#take image
+SUCCESS=0
+#parameters are $1=time, $2=binning, $3="dark" or "", $4=outfile
+function getImage {
+    SUCCESS=1
+    image time=$1 bin=$2 $3 outfile=$4
+    if [ $? -eq 0 ]
+    then
+        debug "Got image ($4)."
+        preview "$4" "$4"
+#echo "Got image ($4)." > /dev/null
+    else
+        alert "Error. Image command failed ($4)."
+        SUCCESS=0
+    fi
+}
+
+#is slit open? if not, exit
+function checkSlit {
+  if [ -n "`tx slit | grep "slit=open"`" ]
+  then
+  	echo "Slit is open." > /dev/null
+  else
+	alert "Slit closed unexpectedly. Aborting..."
+	#closedown
+	exit 1	  
+  fi
+}
+
+MINIMUM_ALT=20
+#check to be sure telescope altitude is within limits
+function checkAlt {
+  local ALT=`tx where | grep -o 'alt=[0-9\.]\+' | cut -c5-`
+  if [ ${ALT%.*} -lt ${MINIMUM_ALT%.*} ]
+  then
+ 	alert "Altitude of telescope ($ALT) too low. Closing down observatory..."
+	closedown
+	exit 1
+  fi
+}

@@ -16,7 +16,9 @@ function point {
     fi
     #echo $1 $2
     tx track on > /dev/null 2>&1
+    echo "Pointing telescope to target..."
     tx point ra=$1 dec=$2 > /dev/null 2>&1
+    echo "Refining telescope position..."
     $AUFFSET $1 $2
 }
 
