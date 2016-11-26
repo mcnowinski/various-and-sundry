@@ -53,6 +53,8 @@ do
   fi
   #ensure tracking is on
   tx track on > /dev/null
+  #ensure dome is centered on telescope pointing location
+  tx dome center > /dev/null
 done
 
 alert "Image sequence complete. Obtained $COUNT image set(s)."

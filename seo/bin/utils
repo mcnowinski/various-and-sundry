@@ -55,7 +55,7 @@ function getImage {
     then
         debug "Got image ($4)."
         preview "$4" "$4"
-#echo "Got image ($4)." > /dev/null
+        #echo "Got image ($4)." > /dev/null
     else
         alert "Error. Image command failed ($4)."
         SUCCESS=0
