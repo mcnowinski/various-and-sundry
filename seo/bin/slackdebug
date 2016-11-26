@@ -11,12 +11,6 @@ fi
 
 text=$1
 
-#if [[ $text == "" ]]
-#then
-#       echo "Error. No message specified."
-#        exit 1
-#fi
-
 escapedText=$(echo $text | sed 's/"/\"/g' | sed "s/'/\'/g" )
 
 json="{\"channel\": \"$slackdebug_channel\", \"username\":\"$slackdebug_username\", \"icon_emoji\":\"ghost\", \"attachments\":[{\"color\":\"danger\" , \"text\": \"$escapedText\"}]}"

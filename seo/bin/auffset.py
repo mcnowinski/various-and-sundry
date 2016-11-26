@@ -5,6 +5,7 @@ import subprocess
 import re
 import sys
 from decimal import Decimal
+import datetime
 ##gain access to local astropy module
 #sys.path.append('/home/mcnowinski/.local/lib/python2.7/')
 from astropy.io import fits
@@ -15,7 +16,7 @@ import astropy.units as u
 
 def logme( str ):
    log.write(str + "\n")
-   print str
+   print >> sys.stderr, str
    return
 
 ##check command line parameters
@@ -33,7 +34,7 @@ if len(sys.argv) >= 3:
     
 #MODIFY THESE FIELDS AS NEEDED!
 #log file name
-log_fname = '/tmp/log.auffset.txt'
+log_fname = '/tmp/'+datetime.datetime.now().strftime("%Y%m%d.%H%M%S%3N.")+'log.auffset.txt'
 #path to astrometry.net solve_field executable
 solve_field_path='/home/mcnowinski/astrometry/bin/solve-field'
 #astrometry parameters
@@ -41,7 +42,7 @@ downsample=2
 scale_low=0.55
 scale_high=2.00
 radius=1.0
-cpu_limit=10
+cpu_limit=30
 #offset limits (deg)
 max_ra_offset=2.0
 max_dec_offset=2.0
@@ -52,7 +53,7 @@ max_tries=5
 #image command parameters
 time=10
 bin=2
-fits_fname='/tmp/pointing.fits'
+fits_fname='/tmp/'+datetime.datetime.now().strftime("%Y%m%d.%H%M%S%3N.")+'pointing.fits'
 
 log=open(log_fname, 'a+')	
 
@@ -63,6 +64,8 @@ dec_offset = 2.0
 iteration = 0
 while(ra_offset > min_ra_offset and dec_offset > min_dec_offset and iteration < max_tries):
     iteration += 1
+    
+    logme('Performing adjustment #%d...'%(iteration))
 
     #get pointing image
     os.system('image time=%d bin=%d outfile=%s' % (time, bin, fits_fname));
@@ -85,7 +88,8 @@ while(ra_offset > min_ra_offset and dec_offset > min_dec_offset and iteration < 
             sys.exit(1)
             
     #plate solve this image, using RA/DEC from FITS header
-    output = subprocess.check_output(solve_field_path + ' --no-verify --overwrite --downsample %d --scale-units arcsecperpix --scale-low %f --scale-high %f --ra %s --dec %s --radius %f --cpulimit %d --no-plots '%(downsample,scale_low,scale_high,ra_target,dec_target,radius,cpu_limit)+fits_fname, shell=True)
+    output = subprocess.check_output(solve_field_path + ' --no-verify --overwrite --no-remove-lines --downsample %d --scale-units arcsecperpix --scale-low %f --scale-high %f --ra %s --dec %s --radius %f --cpulimit %d --no-plots '%(downsample,scale_low,scale_high,ra_target,dec_target,radius,cpu_limit)+fits_fname, shell=True)
+    #output = subprocess.check_output(solve_field_path + ' --no-verify --overwrite --downsample %d --cpulimit %d --no-plots '%(downsample,cpu_limit)+fits_fname, shell=True)
     log.write(output)
 
     #look for field center in solve-field output
@@ -101,14 +105,17 @@ while(ra_offset > min_ra_offset and dec_offset > min_dec_offset and iteration < 
     dec_offset=float(dec_target)-float(DEC_image)
 
     if(abs(ra_offset) <= max_ra_offset and abs(dec_offset) <=max_dec_offset):
-        os.system('tx offset ra=%f dec=%f' % (ra_offset, dec_offset))
-        print "Offset complete (tx offset ra=%f dec=%f)." % (ra_offset, dec_offset)
+        os.system('tx offset ra=%f dec=%f cos > /dev/null' % (ra_offset, dec_offset))
+        #print "Offset complete (tx offset ra=%f dec=%f)." % (ra_offset, dec_offset)
+        logme("...complete (dRA=%f deg, dDEC=%f deg)."%(ra_offset, dec_offset))
     else:
-        print "Error. Calculated offsets too large (tx offset ra=%f dec=%f)!" % (ra_offset, dec_offset)   
+        logme("Error. Calculated offsets too large (tx offset ra=%f dec=%f)! Pinpoint aborted." % (ra_offset, dec_offset))   
         sys.exit(1)
     #hms = coord.Angle(RA_image, unit=u.degree).hms
     #dms = coord.Angle(DEC_image, unit=u.degree).dms
     #print "center ra=%d:%d:%f dec=%d:%d:%f" % (hms.h, hms.m, hms.s, dms.d, dms.m, dms.s)
 
-log.close()    
+logme('BAM! Your target has been pinpoint-ed!')
+log.close()
+os.remove(fits_fname)
 sys.exit(0)

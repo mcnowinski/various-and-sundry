@@ -1,0 +1,27 @@
+#!/bin/bash
+
+#check parameters
+if [ $# -ne 1 ]; then
+    echo "This routine loops until the sun has set."
+    echo "Usage: sunset <sun alt. at sunset in degrees>"
+    exit 1
+fi
+
+MAX_SUN_ALT=$1
+
+function sunIsUp {
+  local SUN_ALT=`sun | grep -o 'alt=[0-9\.\-]\+' | cut -c5-`
+  if [ ${SUN_ALT%.*} -gt ${MAX_SUN_ALT%.*} ]
+  then
+    echo "Sun is UP. Altitude is $SUN_ALT deg."
+    return 0
+  else
+    echo "Sun is DOWN. Altitude is $SUN_ALT deg."
+    return 1
+  fi
+}
+
+while sunIsUp
+do
+    sleep 60
+done

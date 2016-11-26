@@ -1,0 +1,60 @@
+#!/bin/bash
+
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+source $DIR/utils
+
+if [ $# -lt 4 ]; then
+	echo "This routine takes a sequence of image sets."
+    echo "Usage: superloop <number of image sets> <exposure time (seconds)> <binning, e.g., 2> <filter names(s), separated by spaces>"
+    exit 1
+fi
+
+#input params
+NUM_SETS=$1
+shift
+EXPOSURE_SEC=$1
+shift
+BINNING=$1
+shift
+
+#build filter array
+FILTERS=( "$@" )
+
+COUNT=0
+
+#make sure the slit is open!
+checkSlit
+
+#pfilter $FILTER
+tx track on
+
+#make sure telescope is not set too low
+checkAlt
+
+#get the target images
+alert "Taking $NUM_SETS image set(s) (bin=$BINNING, time=$EXPOSURE_SEC)..."
+
+#check ccd status before starting
+checkCCDTemp
+for (( k=1; k<=$NUM_SETS; k++ ))
+do
+  checkSlit
+  checkAlt
+  #report position
+  tx where
+  for filter in "${FILTERS[@]}"; do
+    pfilter $filter
+    getImage $EXPOSURE_SEC $BINNING "" `date -u +"%Y%m%d.%H%M%S%3N"`.`printf "%03d" $COUNT`.$filter.fits 
+  done
+  if [ $SUCCESS -eq 1 ]
+  then
+	COUNT=$((COUNT+1))
+  fi
+  #ensure tracking is on
+  tx track on > /dev/null
+  #ensure dome is centered on telescope pointing location
+  tx dome center > /dev/null
+done
+
+alert "Image sequence complete. Obtained $COUNT image set(s)."

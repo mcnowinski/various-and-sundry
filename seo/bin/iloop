@@ -1,5 +1,9 @@
 #!/bin/bash
 
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+source $DIR/utils
+
 if [ $# -ne 4 ]; then
 	echo "This routine takes a sequence of images."
     echo "Usage: iloop <number of images> <exposure time (seconds)> <binning, e.g., 2> <filter, e.g. clear>"
@@ -7,77 +11,11 @@ if [ $# -ne 4 ]; then
 fi
 
 #input params
-SET_SIZE=$1
+NUM_IMAGES=$1
 EXPOSURE_SEC=$2
 BINNING=$3
-FILTER=$6
-
-#change these as desired
-MINIMUM_ALT=20
-
+FILTER=$4
 COUNT=0
-SUCCESS=0
-
-#is slit open? if not, closedown
-function checkSlit {
-  if [ -n "`tx slit | grep "slit=open"`" ]
-  then
-  	echo "Slit is open." > /dev/null
-  else
-	alert "Slit closed unexpectedly. Closing down observatory..."
-	closedown
-	exit 1	  
-  fi
-}
-
-function checkAlt {
-  local ALT=`tx where | grep -o 'alt=[0-9\.]\+' | cut -c5-`
-  if [ ${ALT%.*} -lt ${MINIMUM_ALT%.*} ]
-  then
- 	alert "Altitude of telescope ($ALT) too low. Closing down observatory..."
-	closedown
-	exit 1
-  fi
-}
-#send text notification to Slack #seo9000 channel
-#parameter is $1=message, e.g. alert "This is a test!"
-function alert {
-    local MESSAGE="`date -u +"%m-%d-%Y %H:%M:%S"` $1"
-    slackalert "$MESSAGE"
-    echo $MESSAGE
-    debug "$1"
-}
-
-#upload image to Slack #seo9001 channel
-#parameter is $1=filepath, e.g. preview <filepath> <message (optional)>
-function preview {
-    stiffy "$1" "$1.tif"
-    convert -resize 50% -normalize -quality 75 "$1.tif" "$1.tif.jpg"
-    (slackpreview "$1.tif.jpg" "$1"; rm "$1.tif"; rm "$1.tif.jpg") &
-}
-
-#send text notification to Slack #seo9001 channel
-#parameter is $1=message, e.g. debug "This is a test!"
-function debug {
-    local MESSAGE="`date -u +"%m-%d-%Y %H:%M:%S"` $1"
-    slackdebug "$MESSAGE"
-}
-
-#take image
-#parameters are $1=time, $2=binning, $3="dark" or "", $4=outfile
-function getImage {
-    SUCCESS=1
-    image time=$1 bin=$2 $3 outfile=$4
-    if [ $? -eq 0 ]
-    then
-        debug "Got image ($4)."
-        preview "$4" "$4"
-    else
-        alert "Error. Image command failed ($4)."
-        sleep 5
-        SUCCESS=0
-    fi
-}
 
 #make sure the slit is open!
 checkSlit
@@ -89,8 +27,11 @@ tx track on
 checkAlt
 
 #get the target images
-alert "Taking $SET_SIZE image(s) (bin=$BINNING, time=$EXPOSURE_SEC)..."
-for (( k=1; k<=$SET_SIZE; k++ ))
+alert "Taking $NUM_IMAGES image(s) (bin=$BINNING, time=$EXPOSURE_SEC)..."
+
+#check ccd status before starting
+checkCCDTemp
+for (( k=1; k<=$NUM_IMAGES; k++ ))
 do
   checkSlit
   checkAlt
@@ -99,11 +40,12 @@ do
   getImage $EXPOSURE_SEC $BINNING "" `date -u +"%Y%m%d.%H%M%S%3N"`.`printf "%03d" $COUNT`.fits
   if [ $SUCCESS -eq 1 ]
   then
-    echo -e "`date -u +"%m-%d-%Y %H:%M:%S"` Image frame (#=`printf "%03d" $COUNT`) complete."
 	COUNT=$((COUNT+1))
   fi
   #ensure tracking is on
   tx track on > /dev/null
+  #ensure dome is centered on telescope pointing location
+  tx dome center > /dev/null
 done
 
 alert "Image sequence complete. Obtained $COUNT image(s)."

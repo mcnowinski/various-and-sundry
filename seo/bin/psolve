@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #solve field path and parameters
-SOLVE_FIELD="/home/mcnowinski/astrometry/bin/solve-field --no-verify --overwrite --cpulimit 10 --no-plots"
+SOLVE_FIELD="solve-field --no-verify --overwrite --cpulimit 10 --no-plots"
 
 FILENAME=$1
 FILENAME_NOEXT=${FILENAME%.*}
