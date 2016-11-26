@@ -18,6 +18,8 @@ from astropy import wcs
 from astropy import units as u
 import ccdproc
 
+import numpy as np
+
 def logme( str ):
    log.write(str + "\n")
    print str
@@ -44,6 +46,7 @@ have_bias = True
 bias_path='./bias/'
 #master flat frame
 have_flat = True
+flat_is_debiased = False
 flat_path='./flat/'
 #or folder with flats *with* ending forward slash
 #flat=./flats/'
@@ -52,8 +55,19 @@ exposure_label='EXPTIME'
 
 log=open(log_fname, 'a+')
 
+#trim image? set range here, or set to '' to disable
+trim_range = ''
+if(len(sys.argv) == 5):
+   naxis1_start = int(sys.argv[1])
+   naxis1_end = int(sys.argv[2])
+   naxis2_start = int(sys.argv[3])
+   naxis2_end = int(sys.argv[4])  
+   trim_range = '[%d:%d, %d:%d]'%(naxis1_start, naxis1_end, naxis2_start, naxis2_end) #starts at 1, inclusive
+   logme('Trimming images to NAXIS1=%d to %d, NAXIS2=%d to %d.'%(naxis1_start, naxis1_end, naxis2_start, naxis2_end))
+
 if(not have_dark and not have_bias and not have_flat):
-    print 'Error. No calibrations specified.' % dark_path
+    logme('Error. No calibrations specified.' % dark_path)
+    log.close()
     sys.exit(-1)   
 
 #does output directory exist? If not, create it
@@ -65,17 +79,19 @@ except:
 #does dark frame exist?
 if(have_dark):
     if not (os.path.isfile(dark_path) or os.path.isdir(dark_path)):
-        print 'Error. Dark calibration frame(s) not found (%s).' % dark_path
+        logme('Error. Dark calibration frame(s) not found (%s).' % dark_path)
+        log.close()
         sys.exit(-1)
     #open master dark
     if os.path.isfile(dark_path):
-        print 'Opening master dark (%s)...'%(dark_path)
+        logme('Opening master dark (%s)...'%(dark_path))
         dark = ccdproc.CCDData.read(dark_path, unit='adu')
     else:
         #create master dark frame
         im=glob.glob(dark_path+'*.fits')+glob.glob(dark_path+'*.fit')
         if(len(im) <= 0):
-            print 'Error. Dark calibration frame(s) not found (%s).' % dark_path
+            logme('Error. Dark calibration frame(s) not found (%s).' % dark_path)
+            log.close()
             sys.exit(-1)
         darks = None
         for i in range(0,len(im)):
@@ -92,11 +108,15 @@ if(have_dark):
         except:
             pass    
         dark_path += 'master_dark.fits'
-        print 'Creating master dark frame (%s)...'%(dark_path)
+        logme('Creating master dark frame (%s)...'%(dark_path))
         dark = ccdproc.combine(darks, method='median', unit='adu', add_keyword=False)
+        #trim it, if necessary    
+        if(len(trim_range) > 0):
+            #logme('Trimming dark image (%s)...'%(trim_range))
+            dark = ccdproc.trim_image(dark, trim_range);
         hdulist = dark.to_hdu()
         hdulist.writeto(dark_path, clobber=True)
-        #print hdulist[0].header
+        #logme(hdulist[0].header)
         #if os.path.isfile(dark_path):
         #    os.system('rm %s' %dark_path)   
         #dark.write(dark_path, clobber=True)        
@@ -104,17 +124,19 @@ if(have_dark):
 #does bias frame exist?
 if(have_bias):
     if not (os.path.isfile(bias_path) or os.path.isdir(bias_path)):
-        print 'Error. Bias calibration frame(s) not found (%s).' % bias_path
+        logme('Error. Bias calibration frame(s) not found (%s).' % bias_path)
+        log.close()
         sys.exit(-1)    
     #open master bias
     if os.path.isfile(bias_path):
-        print 'Opening master bias (%s)...'%(bias_path)
+        logme('Opening master bias (%s)...'%(bias_path))
         bias = ccdproc.CCDData.read(bias_path, unit='adu')
     else:
         #create master bias frame
         im=glob.glob(bias_path+'*.fits')+glob.glob(bias_path+'*.fit')
         if(len(im) <= 0):
-            print 'Error. Bias calibration frame(s) not found (%s).' % bias_path
+            logme('Error. Bias calibration frame(s) not found (%s).' % bias_path)
+            log.close()
             sys.exit(-1)
         biases = None
         for i in range(0,len(im)):
@@ -132,8 +154,12 @@ if(have_bias):
             pass    
         bias_path += 'master_bias.fits'    
         
-        print 'Creating master bias frame (%s)...'%(bias_path)
+        logme('Creating master bias frame (%s)...'%(bias_path))
         bias = ccdproc.combine(biases, method='median', unit='adu', add_keyword=False)
+        #trim it, if necessary    
+        if(len(trim_range) > 0):
+            #logme('Trimming bias image (%s)...'%(trim_range))
+            bias = ccdproc.trim_image(bias, trim_range);
         hdulist = bias.to_hdu()
         hdulist.writeto(bias_path, clobber=True)
         #if os.path.isfile(bias_path):
@@ -143,20 +169,26 @@ if(have_bias):
 #does flat frame exist? 
 if(have_flat):   
     if not (os.path.isfile(flat_path) or os.path.isdir(flat_path)):
-        print 'Error. Flat calibration frame(s) not found (%s).' % flat_path
+        logme('Error. Flat calibration frame(s) not found (%s).' % flat_path)
+        log.close()
         sys.exit(-1)    
     #open master flat
     if os.path.isfile(flat_path):
-        print 'Opening master flat (%s)...'%(flat_path)
+        logme('Opening master flat (%s)...'%(flat_path))
         flat = ccdproc.CCDData.read(flat_path, unit='adu')
     else:
         #create master flat frame
         im=glob.glob(flat_path+'*.fits')+glob.glob(flat_path+'*.fit')
         if(len(im) <= 0):
-            print 'Error. Flat calibration frame(s) not found (%s).' % flat_path
-            sys.exit(-1)
+            logme('Error. Flat calibration frame(s) not found (%s).' % flat_path)
+            log.close()
+            sys.exit(-1)          
         flats = None
         for i in range(0,len(im)):
+            #is this flat bias corrected?
+            header = fits.getheader(im[i])
+            if(header.get('BIAS') != None):
+                flat_is_debiased = True 
             if(flats):
                 flats += ','+im[i]
             else:
@@ -171,28 +203,47 @@ if(have_flat):
             pass    
         flat_path += 'master_flat.fits'    
         
-        print 'Creating master flat frame (%s)...'%(flat_path)
-        flat = ccdproc.combine(flats, method='median', unit='adu', add_keyword=False)
+        if(flat_is_debiased):
+            logme('Flat frames are bias corrected.')
+        else:
+            logme('Flat frames are NOT bias corrected.')        
+        logme('Creating master flat frame (%s)...'%(flat_path))
+        #scale the flat component frames to have the same mean value, 10000.0
+        scaling_func = lambda arr: 10000.0/np.ma.median(arr)
+        flat = ccdproc.combine(flats, method='median', scale=scaling_func, unit='adu', add_keyword=False)
+        #trim it, if necessary    
+        if(len(trim_range) > 0):
+            #logme('Trimming flat image (%s)...'%(trim_range))
+            flat = ccdproc.trim_image(flat, trim_range);
         hdulist = flat.to_hdu()
         hdulist.writeto(flat_path, clobber=True)
     
 #get a list of all FITS files in the input directory
 fits_files=glob.glob(input_path+'*.fits')+glob.glob(input_path+'*.fit')
 #loop through all qualifying files and perform plate-solving
-print 'Calibrating images in %s' %input_path
+logme('Calibrating images in %s' %input_path)
 for fit_file in fits_files:   
     #open image
     image = ccdproc.CCDData.read(fit_file, unit='adu', relax=True)
 
+    if(len(trim_range) > 0):
+        image = ccdproc.trim_image(image, trim_range);
+    
     #subtract bias from image    
     if(have_bias):
         image_bias_subtracted = ccdproc.subtract_bias(image, bias, add_keyword=False)
         if(have_dark):
             #subtract bias from dark
-            dark_bias_subtracted = ccdproc.subtract_bias(dark, bias, add_keyword=False)  
+            dark_bias_subtracted = ccdproc.subtract_bias(dark, bias, add_keyword=False)
+        if(have_flat):
+            if(not flat_is_debiased):
+                flat_bias_subtracted = ccdproc.subtract_bias(flat, bias, add_keyword=False)
+            else:
+                flat_bias_subtracted = flat
     else:
         image_bias_subtracted = image
         dark_bias_subtracted = dark
+        flat_bias_subtracted = flat
 
     #subtract bias-corrected dark from bias-corrected image; scale if necessary
     if(have_dark):    
@@ -203,7 +254,7 @@ for fit_file in fits_files:
 
     #divide by normalized (and bias corrected) flat image        
     if(have_flat):
-        image_calibrated = ccdproc.flat_correct(image_dark_subtracted, flat, add_keyword=False)
+        image_calibrated = ccdproc.flat_correct(image_dark_subtracted, flat_bias_subtracted, add_keyword=False)
     else:
         image_calibrated = image_dark_subtracted
     
@@ -219,8 +270,11 @@ for fit_file in fits_files:
     if(have_dark):
         hdulist[0].header['DARK'] = os.path.basename(dark_path)        
     if(have_flat):
-        hdulist[0].header['FLAT'] = os.path.basename(flat_path) 
+        hdulist[0].header['FLAT'] = os.path.basename(flat_path)
+    if(len(trim_range) > 0):
+        hdulist[0].header['NAXIS1'] = '%d'%((naxis1_end-naxis1_start))
+        hdulist[0].header['NAXIS2'] = '%d'%((naxis2_end-naxis2_start))        
     hdulist.writeto(output_file, clobber=True)
     
-print 'Calibrated %d images and saved to %s.' %(len(fits_files),output_path)
+logme('Calibrated %d images and saved to %s.' %(len(fits_files),output_path))
 log.close()

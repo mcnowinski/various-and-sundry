@@ -24,7 +24,7 @@ public class HorizonsByDay {
     static final String galacticLatName = "GlxLat";
     static final double apMagMin = 17.0;	//only process days where apparent magnitude is brighter than this number	
     static final int stepSizeMin = 15;	//time step size in minutes of ephemeris
-	static final LocalDateTime dtStart = LocalDateTime.of(2016, 11, 3, 0, 0); //reference start date (e.g. beginning of IRTF session)
+	static final LocalDateTime dtStart = LocalDateTime.of(2016, 11, 24, 0, 0); //reference start date (e.g. beginning of IRTF session)
     
 	public int id = 1;
 	

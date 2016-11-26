@@ -116,11 +116,13 @@ for new in sorted(im):
         #Field rotation angle: up is 88.1839 degrees E of N
         match = re.search('Field rotation angle\: up is ([0-9\-\.]+) degrees', output)	
         if match:
-            rotation_angle=match.group(1).strip()
+            rotation_angle=float(match.group(1).strip())
+            if(rotation_angle < 0):
+                rotation_angle += 360.0;
             if(last_rotation_angle == None):
                 pass
             else:
-                if(abs(Decimal(last_rotation_angle)-Decimal(rotation_angle)) > 90):
+                if(abs(last_rotation_angle-rotation_angle) > 90):
                     logme("Meridian flipped detected!")
                     flip_count = flip_count + 1
                     #output_suffix += ".flip%d"%(flip_count)

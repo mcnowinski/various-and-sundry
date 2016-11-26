@@ -1,10 +1,9 @@
 ##calibrateDL.py##calibrate fits images in MaximDL using darks, flats, and bias frames
 import win32com.clientimport osfrom astropy.io import fits
-import time#calibration frame relative pathsinput_path='./'dark_path='./dark/'bias_path='./bias/'flat_path='./flat/'#MaximDL win32 COM interfacedoc=win32com.client.Dispatch("MaxIM.Document")
-app=win32com.client.Dispatch("Maxim.Application")cur_path = os.getcwd()
-app.CreateCalibrationGroups('%s;%s;%s'%(bias_path,dark_path,flat_path),2,0,False) #call maxim's command to create calibration group#get a list of all FITS files in the input directoryfits_files=glob.glob(input_path+'*.fits')+glob.glob(input_path+'*.fit')
-for image in fits_files:
+import timeimport globimport sysimport shutilcur_path = os.getcwd()#change as desiredinput_path=cur_path+'/'output_path=cur_path+'/calibrated/'dark_path=cur_path+'/dark/'bias_path=cur_path+'/bias/'flat_path=cur_path+'/flat/'output_suffix='calibrated'#does output directory exist? If not, create ittry:    os.mkdir(output_path)except:    pass#MaximDL win32 COM interfacedoc=win32com.client.Dispatch("MaxIM.Document")
+app=win32com.client.Dispatch("Maxim.Application")#IMAGETYP must be set to identify bias, dark, flats#loop through flat directory and make sure the IMAGETYPE is Flat Frame (not Light Frame)flat_files=glob.glob(flat_path+'*.fits')+glob.glob(flat_path+'*.fit')for flat_file in flat_files:    #print flat_file    flat=fits.open(flat_file, mode='update')    try:        flat[0].header['IMAGETYP'] = 'Flat Frame'    except KeyError:        print 'Error. Could not update flat file header.'        sys.exit(-1)    flat.close() #will write changes back to original file!
+num_groups=app.CreateCalibrationGroups('%s;%s;%s'%(bias_path,dark_path,flat_path),1,0,False) #call maxim's command to create calibration group#print num_groupsif(num_groups != 3):    print 'Failed to create bias, dark, and flat calibration groups in MaximDL.'    sys.exit(-1)    #get a list of all FITS files in the input directoryfits_files=glob.glob(input_path+'*.fits')+glob.glob(input_path+'*.fit')count = 0for fits_file in fits_files:
     app.CloseAll() #close all files open in maxim
-    doc.OpenFile("%s/%s"%(x,image)) #open single image
-    doc.Calibrate() #calibrate image    doc.SaveFile("C:/reduce/reduced_prehold30/%s.REDUCED.fit"%(image[:-3]),3,True,1,0)    doc.close
+    doc.OpenFile("%s"%(fits_file)) #open single image
+    doc.Calibrate() #calibrate image    output_file = os.path.basename(fits_file).rsplit('.',1)[0] + "." + output_suffix + ".fits"    output_file = output_path+output_file    doc.SaveFile(output_file, 3, True, 1, 0)    doc.close    count += 1    print 'Calibrated %d files.' %(count)
 		
