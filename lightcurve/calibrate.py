@@ -47,6 +47,7 @@ bias_path='./bias/'
 #master flat frame
 have_flat = True
 flat_is_debiased = False
+flat_ave_exptime = 0
 flat_path='./flat/'
 #or folder with flats *with* ending forward slash
 #flat=./flats/'
@@ -184,6 +185,8 @@ if(have_flat):
             log.close()
             sys.exit(-1)          
         flats = None
+        count = 0
+        #check a few things in these flat component frames
         for i in range(0,len(im)):
             #is this flat bias corrected?
             header = fits.getheader(im[i])
@@ -193,6 +196,14 @@ if(have_flat):
                 flats += ','+im[i]
             else:
                 flats = im[i]
+            #calc average exposure time for dark correction
+            if(header.get('EXPTIME') != None):
+                flat_ave_exptime += float(header.get('EXPTIME'))
+                count += 1
+        #calc average exposure time
+        if(count > 0):
+            flat_ave_exptime = flat_ave_exptime/count
+            logme("Average exposure time for flats is %f"%flat_ave_exptime)
         #if there is just one, make it two of the same!
         if (len(im) == 1):
             flats += ','+im[0]
@@ -210,12 +221,16 @@ if(have_flat):
         logme('Creating master flat frame (%s)...'%(flat_path))
         #scale the flat component frames to have the same mean value, 10000.0
         scaling_func = lambda arr: 10000.0/np.ma.median(arr)
+        #combine them
         flat = ccdproc.combine(flats, method='median', scale=scaling_func, unit='adu', add_keyword=False)
         #trim it, if necessary    
         if(len(trim_range) > 0):
             #logme('Trimming flat image (%s)...'%(trim_range))
             flat = ccdproc.trim_image(flat, trim_range);
         hdulist = flat.to_hdu()
+        if(flat_ave_exptime > 0):
+            header=hdulist[0].header
+            header['EXPTIME'] = flat_ave_exptime
         hdulist.writeto(flat_path, clobber=True)
     
 #get a list of all FITS files in the input directory
@@ -229,7 +244,7 @@ for fit_file in fits_files:
     if(len(trim_range) > 0):
         image = ccdproc.trim_image(image, trim_range);
     
-    #subtract bias from image    
+    #subtract bias from light, dark, and flat frames    
     if(have_bias):
         image_bias_subtracted = ccdproc.subtract_bias(image, bias, add_keyword=False)
         if(have_dark):
@@ -245,16 +260,23 @@ for fit_file in fits_files:
         dark_bias_subtracted = dark
         flat_bias_subtracted = flat
 
-    #subtract bias-corrected dark from bias-corrected image; scale if necessary
+    #subtract bias-corrected dark from bias-corrected light and flat images; scale if necessary
     if(have_dark):    
         #for image exp = dark exp, the bias frames cancel
         image_dark_subtracted = ccdproc.subtract_dark(image_bias_subtracted, dark_bias_subtracted, scale=True, exposure_time=exposure_label, exposure_unit=u.second, add_keyword=False)
+        #subtact dark from flat if possible
+        if(have_flat):
+            if(flat_ave_exptime > 0):
+                flat_dark_subtracted = ccdproc.subtract_dark(flat_bias_subtracted, dark_bias_subtracted, scale=True, exposure_time=exposure_label, exposure_unit=u.second, add_keyword=False)
+            else:
+                flat_dark_subtracted = flat_bias_subtracted
     else:
         image_dark_subtracted = image_bias_subtracted
+        flat_dark_subtracted = flat_bias_subtracted
 
     #divide by normalized (and bias corrected) flat image        
     if(have_flat):
-        image_calibrated = ccdproc.flat_correct(image_dark_subtracted, flat_bias_subtracted, add_keyword=False)
+        image_calibrated = ccdproc.flat_correct(image_dark_subtracted, flat_dark_subtracted, add_keyword=False)
     else:
         image_calibrated = image_dark_subtracted
     
