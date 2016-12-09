@@ -94,7 +94,7 @@ for new in sorted(im):
             dec=decA
         
         #plate solve this image, using RA/DEC from FITS header
-        output = subprocess.check_output(solve_field_path + ' --no-verify --no-fits2fits --overwrite --downsample 2 --guess-scale --ra %s --dec %s --radius 1.0 --cpulimit 30 --no-plots '%(ra,dec)+'%s'%(new), shell=True)
+        output = subprocess.check_output(solve_field_path + ' --no-fits2fits --overwrite --downsample 2 --guess-scale --ra %s --dec %s --radius 1.0 --cpulimit 30 --no-plots '%(ra,dec)+'%s'%(new), shell=True)
         log.write(output)
         #print output
         

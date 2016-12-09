@@ -210,8 +210,8 @@ for i in range(0,len(im)):
         header['BIASCORR'] = flat_bias     
         hdulist.writeto(flat_corrected, clobber=True)        
         flat_bias = bias_master
-    #else:
-    #    logme('Flat frame is *already* bias corrected (%s).'%flat_bias)
+    else:
+        logme('Flat frame (%s) is *already* bias corrected (%s).'%(im[i],flat_bias))
     #dark correct, if necessary
     if(not flat_is_dark_corrected):
         #logme('Subtracting master dark frame from flat frame...')
@@ -226,8 +226,8 @@ for i in range(0,len(im)):
         header['DARKCORR'] = dark_bias    
         hdulist.writeto(flat_corrected, clobber=True)       
         flat_dark = dark_master
-    #else:
-    #    logme('Flat frame is *already* dark corrected (%s).'%flat_dark)        
+    else:
+        logme('Flat frame (%s) is *already* dark corrected (%s).'%(im[i],flat_dark)  )      
     if(flats):
         flats += ','+flat_corrected
     else:
@@ -235,7 +235,11 @@ for i in range(0,len(im)):
     #calc average exposure time for potential dark correction
     if(header.get('EXPTIME') != None):
         #print header.get('EXPTIME')
-        flat_ave_exptime += float(header.get('EXPTIME'))
+        try:
+            exptime = float(header.get('EXPTIME'))
+            flat_ave_exptime += exptime
+        except ValueError:
+            logme('Exposure time (EXPTIME) is not a float (%s).'%(header.get('EXPTIME')))
         count += 1
 #calc average exposure time
 #if(count > 0):
@@ -275,9 +279,9 @@ hdulist.writeto(flat_path, clobber=True)
 fits_files=glob.glob(input_path+'*.fits')+glob.glob(input_path+'*.fit')
 #loop through all qualifying files and perform plate-solving
 logme('Calibrating images in %s' %input_path)
-for fit_file in fits_files:   
+for fits_file in fits_files:   
     #open image
-    image = ccdproc.CCDData.read(fit_file, unit='adu', relax=True)
+    image = ccdproc.CCDData.read(fits_file, unit='adu', relax=True)
     #trim it, if necessary 
     if(len(trim_range) > 0):
         image = ccdproc.trim_image(image, trim_range);
@@ -286,11 +290,11 @@ for fit_file in fits_files:
     image = ccdproc.subtract_dark(image, dark, scale=True, exposure_time=exposure_label, exposure_unit=u.second, add_keyword=False)
     image = ccdproc.flat_correct(image, flat, add_keyword=False)    
     #save calibrated image
-    output_file = "%s"%(fit_file.rsplit('.',1)[0])+output_suffix+".fits"
+    output_file = "%s"%(fits_file.rsplit('.',1)[0])+output_suffix+".fits"
     output_file = output_file.rsplit('/',1)[1]
     output_file = output_path+output_file
     #scale calibrated image back to int16, some FITS programs don't like float    
-    hdulist = image_calibrated.to_hdu()
+    hdulist = image.to_hdu()
     hdulist[0].scale('int16', bzero=32768)
     hdulist[0].header['BIASCORR'] = bias_master
     hdulist[0].header['DARKCORR'] = dark_master        
