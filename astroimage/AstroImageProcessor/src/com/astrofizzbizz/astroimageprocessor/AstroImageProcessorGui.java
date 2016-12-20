@@ -1652,6 +1652,11 @@ public class AstroImageProcessorGui extends JFrame {
 			
 			statusMsg("Distance (arcmin) = " + wc_end.dist(wc_start));
 			
+			double PA = Math.toDegrees(Math.atan2(wc_end.getDecDeg()-wc_start.getDecDeg(), wc_end.getRaDeg()-wc_start.getRaDeg()));
+			statusMsg("Position Angle (deg) = " + PA);
+			double PlA = Math.toDegrees(Math.atan2(iy_end-iy_start, ix_end-ix_start));			
+			statusMsg("Plate Angle (deg) = " + PlA);
+			
 			dragging = false;
 		}	
 	}	
@@ -1687,6 +1692,11 @@ public class AstroImageProcessorGui extends JFrame {
 			statusMsg("End : RA (H:M:S) = "+wc_end.getRA().toString()+", Dec (H:M:S) = "+wc_end.getDec().toString());		
 
 			statusMsg("Distance (arcmin) = " + wc_end.dist(wc_start));			
+
+			double PA = Math.toDegrees(Math.atan2(wc_end.getDecDeg()-wc_start.getDecDeg(), wc_end.getRaDeg()-wc_start.getRaDeg()));
+			statusMsg("Position Angle (deg) = " + PA);
+			double PlA = Math.toDegrees(Math.atan2(iy_end-iy_start, ix_end-ix_start));			
+			statusMsg("Plate Angle (deg) = " + PlA);			
 			
 			dragging_zoomed = false;
 		}	
