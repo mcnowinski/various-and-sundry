@@ -1,5 +1,6 @@
 #!/bin/bash
 
+tin interrupt
 closedown
 tx lock clear
 tx slit

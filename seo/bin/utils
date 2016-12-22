@@ -69,8 +69,13 @@ function checkSlit {
   	echo "Slit is open." > /dev/null
   else
 	alert "Slit closed unexpectedly. Aborting..."
-	#closedown
-	exit 1	  
+	closedown
+	#exit 1
+	while true
+	do
+		alert "Slit closed unexpectedly. Observatory closed."
+		sleep 30
+	done
   fi
 }
 
@@ -82,6 +87,29 @@ function checkAlt {
   then
  	alert "Altitude of telescope ($ALT) too low. Closing down observatory..."
 	closedown
-	exit 1
+	#exit 1
+	while true
+	do
+		alert "Altitude of telescope ($ALT) too low. Observatory closed."
+		sleep 30
+	done
+  fi
+}
+
+MAXIMUM_CLOUDS=40
+#check to be sure telescope altitude is within limits
+function checkClouds {
+  local CLOUDS=`tx taux | grep -o 'cloud=[0-9\.\+\-]\+' | cut -c7-`
+  CLOUD_PCT=$(expr $CLOUDS*100 | bc)
+  if [ ${CLOUD_PCT%.*} -gt ${MAXIMUM_CLOUDS%.*} ]
+  then
+ 	alert "Cloud cover ($CLOUD_PCT) too high. Closing down observatory..."
+	closedown
+	#exit 1
+	while true
+	do
+		alert "Cloud cover ($CLOUD_PCT) too high. Observatory closed."
+		sleep 30
+	done
   fi
 }

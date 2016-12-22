@@ -1,0 +1,54 @@
+#!/bin/bash
+
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+source $DIR/utils
+
+if [ $# -ne 4 ]; then
+	echo "This routine takes a sequence of fringe images."
+    echo "Usage: defringer <number of images> <exposure time (seconds)> <binning, e.g., 2> <filter, e.g. clear>"
+    exit 1
+fi
+
+#input params
+NUM_IMAGES=$1
+EXPOSURE_SEC=$2
+BINNING=$3
+FILTER=$4
+COUNT=0
+
+#make sure the slit is open!
+checkSlit
+
+pfilter $FILTER
+tx track on
+
+#make sure telescope is not set too low
+checkAlt
+
+#get the target images
+alert "Taking $NUM_IMAGES fringe image(s) (bin=$BINNING, time=$EXPOSURE_SEC)..."
+
+#check ccd status before starting
+checkCCDTemp
+for (( k=1; k<=$NUM_IMAGES; k++ ))
+do
+  checkSlit
+  checkAlt
+  #report position
+  tx where
+  getImage $EXPOSURE_SEC $BINNING "" defringe.`date -u +"%Y%m%d.%H%M%S%3N"`.`printf "%03d" $COUNT`.$BINNING.$EXPOSURE_SEC.fits
+  if [ $SUCCESS -eq 1 ]
+  then
+	COUNT=$((COUNT+1))
+  fi
+  #jog the telscope position a smidge
+  set r=`rand n=2`
+  tx offset ha=`echo ${r[1]}/10-.05 | bc` dec=`echo ${r[2]}/10-.05 | bc` cos > /dev/null
+  #ensure tracking is on
+  tx track on > /dev/null
+  #ensure dome is centered on telescope pointing location
+  tx dome center > /dev/null
+done
+
+alert "Image sequence complete. Obtained $COUNT fringe image(s)."

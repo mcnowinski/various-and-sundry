@@ -7,7 +7,7 @@ import sys
 from decimal import Decimal
 import datetime
 ##gain access to local astropy module
-#sys.path.append('/home/mcnowinski/.local/lib/python2.7/')
+#sys.path.append('/home/mcnowinski/astropy/lib/python2.7/site-packages/astropy-1.2.1-py2.7-linux-x86_64.egg')
 from astropy.io import fits
 from astropy import wcs
 from astropy.io.fits import getheader
@@ -62,7 +62,7 @@ log=open(log_fname, 'a+')
 ra_offset = 2.0
 dec_offset = 2.0
 iteration = 0
-while(ra_offset > min_ra_offset and dec_offset > min_dec_offset and iteration < max_tries):
+while((abs(ra_offset) > min_ra_offset or abs(dec_offset) > min_dec_offset) and iteration < max_tries):
     iteration += 1
     
     logme('Performing adjustment #%d...'%(iteration))

@@ -2,4 +2,12 @@
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-echo $DIR
+source $DIR/utils
+
+#checkClouds
+
+set r=`rand n=2`
+ha=`echo ${r[1]}-.5 | bc`
+dec=`echo ${r[2]}-.5 | bc`
+echo $ha
+echo $dec
