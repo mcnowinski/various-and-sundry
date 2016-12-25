@@ -196,14 +196,20 @@ for i in range(0,len(im)):
         flat_dark = header.get('DARKCORR')
     flat_corrected = "%s"%(im[i].rsplit('.',1)[0])+".corrected"	
     shutil.copy(im[i], flat_corrected)
+	#trim as necessary
+    if(len(trim_range) > 0):
+        flat = ccdproc.CCDData.read(flat_corrected, unit='adu', relax=True)
+        flat = ccdproc.trim_image(flat, trim_range)
+        hdulist = flat.to_hdu()
+        hdulist.writeto(flat_corrected, clobber=True)
     #bias correct, if necessary
     if(not flat_is_bias_corrected):
         #logme('Subtracting master bias frame from flat frame...')
         flat = ccdproc.CCDData.read(flat_corrected, unit='adu', relax=True)
         #trim it, if necessary    
-        if(len(trim_range) > 0):
-            flat = ccdproc.trim_image(flat, trim_range);
-        flat = ccdproc.subtract_bias(flat, bias, add_keyword=False)
+        #if(len(trim_range) > 0):
+        #    flat = ccdproc.trim_image(flat, trim_range);
+        #flat = ccdproc.subtract_bias(flat, bias, add_keyword=False)
         hdulist = flat.to_hdu()
         #add bias correction to header
         header=hdulist[0].header
@@ -216,9 +222,9 @@ for i in range(0,len(im)):
     if(not flat_is_dark_corrected):
         #logme('Subtracting master dark frame from flat frame...')
         flat = ccdproc.CCDData.read(flat_corrected, unit='adu', relax=True)
-        #trim it, if necessary    
-        if(len(trim_range) > 0):
-            flat = ccdproc.trim_image(flat, trim_range);
+        ##trim it, if necessary    
+        #if(len(trim_range) > 0):
+        #    flat = ccdproc.trim_image(flat, trim_range);
         flat = ccdproc.subtract_dark(flat, dark, scale=True, exposure_time=exposure_label, exposure_unit=u.second, add_keyword=False)
         hdulist = flat.to_hdu()
         #add bias correction to header
@@ -260,10 +266,10 @@ logme('Creating master flat frame (%s)...'%(flat_path))
 scaling_func = lambda arr: 10000.0/np.ma.median(arr)
 #combine them
 flat = ccdproc.combine(flats, method='median', scale=scaling_func, unit='adu', add_keyword=False)
-#trim it, if necessary    
-if(len(trim_range) > 0):
-    #logme('Trimming flat image (%s)...'%(trim_range))
-    flat = ccdproc.trim_image(flat, trim_range);    
+##trim it, if necessary    
+#if(len(trim_range) > 0):
+#    #logme('Trimming flat image (%s)...'%(trim_range))
+#    flat = ccdproc.trim_image(flat, trim_range);    
 #write master flat frame    
 hdulist = flat.to_hdu()
 #add bias correction to header
