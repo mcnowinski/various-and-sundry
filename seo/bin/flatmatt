@@ -3,7 +3,8 @@
 # Generates sky flats adjusting the exposure time 
 set observer="mcnowinski"
 
-set logid=`echo $argv | getkey logid default=0`
+set logid=0
+#`echo $argv | getkey logid default=0`
 set OPTIMUM=`echo $argv | getkey quiet optimum default=20000`
 set MAXTIME=60
 set MINTIME=2.0
@@ -29,8 +30,14 @@ set filter_nums = (7 3 4 2 5 3 6 6)
 #set counts = (5 5 5 5 5 5 5 5 5)
 set counts = (1 1 1 1 1 1 10 10)
 
+set msg="Taking dusk flat frames..."
+set MESSAGE=`date -u +"%m-%d-%Y %H:%M:%S "`
+set MESSAGE="$MESSAGE $msg"
+slackalert "$MESSAGE"
+slackdebug "$MESSAGE"
+
 #prepare the observatory for observations
-openup logid=$logid 
+openup logid=$logid
 if ($status)  exit 1
 
 #stop any scheduled jobs
@@ -153,6 +160,13 @@ foreach picid ($picids)
     rm image.fits > /dev/null
     rm skyflat*.fits > /dev/null
 end
+
+set msg="Flat frame sequence complete."
+set MESSAGE=`date -u +"%m-%d-%Y %H:%M:%S "`
+set MESSAGE="$MESSAGE $msg"
+slackalert "$MESSAGE"
+slackdebug "$MESSAGE"
+
 exit 0
 
 # Updates the log file for various failures
@@ -163,5 +177,9 @@ if ($logid) then
 	echo $query
 else
 	echo $msg
+	set MESSAGE=`date -u +"%m-%d-%Y %H:%M:%S "`
+	set MESSAGE="$MESSAGE $msg"
+	slackalert "$MESSAGE"
+	slackdebug "$MESSAGE"
 endif
 exit 1

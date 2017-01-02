@@ -6,6 +6,7 @@ import re
 import sys
 from decimal import Decimal
 import datetime
+import getpass
 ##gain access to local astropy module
 #sys.path.append('/home/mcnowinski/astropy/lib/python2.7/site-packages/astropy-1.2.1-py2.7-linux-x86_64.egg')
 from astropy.io import fits
@@ -15,8 +16,9 @@ import astropy.coordinates as coord
 import astropy.units as u
 
 def logme( str ):
-   log.write(str + "\n")
-   print >> sys.stderr, str
+   log.write(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S: ") + str + "\n")
+   #print >> sys.stderr, str
+   print str
    return
 
 ##check command line parameters
@@ -33,8 +35,9 @@ if len(sys.argv) >= 3:
     dec_target = coord.Angle(sys.argv[2], unit=u.deg).degree
     
 #MODIFY THESE FIELDS AS NEEDED!
+base_path='/tmp/'+datetime.datetime.now().strftime("%Y%m%d.%H%M%S%f.")
 #log file name
-log_fname = '/tmp/'+datetime.datetime.now().strftime("%Y%m%d.%H%M%S%3N.")+'log.auffset.txt'
+log_fname = '/tmp/'+getpass.getuser()+'.auffset.log'
 #path to astrometry.net solve_field executable
 solve_field_path='/home/mcnowinski/astrometry/bin/solve-field'
 #astrometry parameters
@@ -44,8 +47,8 @@ scale_high=2.00
 radius=1.0
 cpu_limit=30
 #offset limits (deg)
-max_ra_offset=2.0
-max_dec_offset=2.0
+max_ra_offset=5.0
+max_dec_offset=5.0
 min_ra_offset=0.05
 min_dec_offset=0.05
 #how many pointing iterations to allow?
@@ -53,14 +56,14 @@ max_tries=5
 #image command parameters
 time=10
 bin=2
-fits_fname='/tmp/'+datetime.datetime.now().strftime("%Y%m%d.%H%M%S%3N.")+'pointing.fits'
+fits_fname=base_path+'pointing.fits'
 
 log=open(log_fname, 'a+')	
 
 #fits_fname = sys.argv[1]   
 
-ra_offset = 2.0
-dec_offset = 2.0
+ra_offset = 5.0
+dec_offset = 5.0
 iteration = 0
 while((abs(ra_offset) > min_ra_offset or abs(dec_offset) > min_dec_offset) and iteration < max_tries):
     iteration += 1
@@ -85,6 +88,7 @@ while((abs(ra_offset) > min_ra_offset or abs(dec_offset) > min_dec_offset) and i
         except KeyError:
             logme("Error. RA/DEC not found in input FITS header (%s)." % fits_fname)
             log.close()
+            os.remove(fits_fname)
             sys.exit(1)
             
     #plate solve this image, using RA/DEC from FITS header
@@ -92,6 +96,17 @@ while((abs(ra_offset) > min_ra_offset or abs(dec_offset) > min_dec_offset) and i
     #output = subprocess.check_output(solve_field_path + ' --no-verify --overwrite --downsample %d --cpulimit %d --no-plots '%(downsample,cpu_limit)+fits_fname, shell=True)
     log.write(output)
 
+    #remove astrometry.net temporary files
+    os.remove(fits_fname)
+    os.remove(base_path+'pointing-indx.xyls')
+    os.remove(base_path+'pointing.axy')
+    os.remove(base_path+'pointing.corr')	
+    os.remove(base_path+'pointing.match')
+    os.remove(base_path+'pointing.rdls')
+    os.remove(base_path+'pointing.solved')
+    os.remove(base_path+'pointing.wcs')
+    os.remove(base_path+'pointing.new')
+    
     #look for field center in solve-field output
     match = re.search('Field center\: \(RA,Dec\) \= \(([0-9\-\.\s]+)\,([0-9\-\.\s]+)\) deg\.', output)
     if match:
@@ -117,5 +132,4 @@ while((abs(ra_offset) > min_ra_offset or abs(dec_offset) > min_dec_offset) and i
 
 logme('BAM! Your target has been pinpoint-ed!')
 log.close()
-os.remove(fits_fname)
 sys.exit(0)

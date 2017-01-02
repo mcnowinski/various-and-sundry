@@ -18,10 +18,16 @@ function point {
     fi
     #echo $1 $2
     tx track on > /dev/null 2>&1
-    alert "Pointing telescope to target..."
+    alert "Pointing telescope to target (RA/DEC=$1/$2)..."
     tx point ra=$1 dec=$2 > /dev/null 2>&1
     alert "Refining telescope position..."
     $AUFFSET $1 $2
+	if [ $? -eq 1 ]
+	then
+		alert "Error. Pinpoint command failed. Using mechanical tracking only."
+	else
+		alert "Telescope PIN-pointed to RA/DEC=$1/$2!"	
+	fi
 }
 
 checkSlit

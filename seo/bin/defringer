@@ -17,6 +17,9 @@ BINNING=$3
 FILTER=$4
 COUNT=0
 
+#scale for random number generator
+SCALE=0.5
+
 #make sure the slit is open!
 checkSlit
 
@@ -43,8 +46,11 @@ do
 	COUNT=$((COUNT+1))
   fi
   #jog the telscope position a smidge
+  r=(`rand n=2`)
+  dha=$(expr ${r[0]}*$SCALE-$SCALE*0.5 | bc)
+  ddec=$(expr ${r[1]}*$SCALE-$SCALE*0.5 | bc)
   set r=`rand n=2`
-  tx offset ha=`echo ${r[1]}/10-.05 | bc` dec=`echo ${r[2]}/10-.05 | bc` cos > /dev/null
+  tx offset ha=$dha dec$ddec cos > /dev/null
   #ensure tracking is on
   tx track on > /dev/null
   #ensure dome is centered on telescope pointing location

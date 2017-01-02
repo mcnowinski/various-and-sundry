@@ -24,7 +24,7 @@ function debug {
 }
 
 function checkCCDTemp {
-  local MAX_CCD_TEMP=0
+  local MAX_CCD_TEMP=-20
   local CCD_TEMP=`tx ccd_status | grep -o 'tchip=[0-9\.\-]\+' | cut -c7-`
   if [ ${CCD_TEMP%.*} -gt ${MAX_CCD_TEMP%.*} ]
   then
@@ -74,7 +74,7 @@ function checkSlit {
 	while true
 	do
 		alert "Slit closed unexpectedly. Observatory closed."
-		sleep 30
+		sleep 60
 	done
   fi
 }
@@ -91,25 +91,28 @@ function checkAlt {
 	while true
 	do
 		alert "Altitude of telescope ($ALT) too low. Observatory closed."
-		sleep 30
+		sleep 60
 	done
   fi
 }
 
 MAXIMUM_CLOUDS=40
-#check to be sure telescope altitude is within limits
+#check to be sure cloud cover is not too thick
 function checkClouds {
   local CLOUDS=`tx taux | grep -o 'cloud=[0-9\.\+\-]\+' | cut -c7-`
-  CLOUD_PCT=$(expr $CLOUDS*100 | bc)
+  local CLOUD_PCT=$(expr $CLOUDS*100 | bc)
   if [ ${CLOUD_PCT%.*} -gt ${MAXIMUM_CLOUDS%.*} ]
   then
- 	alert "Cloud cover ($CLOUD_PCT) too high. Closing down observatory..."
-	closedown
+ 	alert "Too many clouds (${CLOUD_PCT%.*}%). Pausing image sequence..."
+	#closedown
 	#exit 1
-	while true
+	while [ ${CLOUD_PCT%.*} -gt ${MAXIMUM_CLOUDS%.*} ]
 	do
-		alert "Cloud cover ($CLOUD_PCT) too high. Observatory closed."
-		sleep 30
+		debug "Cloud cover is ${CLOUD_PCT%.*}%."
+		sleep 60
+		checkSlit
+		CLOUDS=`tx taux | grep -o 'cloud=[0-9\.\+\-]\+' | cut -c7-`
+		CLOUD_PCT=$(expr $CLOUDS*100 | bc)		
 	done
   fi
 }
