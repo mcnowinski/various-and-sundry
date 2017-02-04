@@ -1,6 +1,6 @@
 #Web and Real-Time Messaging interface to Slack for use with the SEO telescope, a.k.a. itzamna
 
-from slackclient._client import SlackClient
+from slackclient import SlackClient
 import time
 import os
 import sys
