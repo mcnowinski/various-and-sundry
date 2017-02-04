@@ -1,6 +1,6 @@
 #Web and Real-Time Messaging interface to Slack for use with the SEO telescope, a.k.a. itzamna
 
-from slackclient import SlackClient
+from slackclient._client import SlackClient
 import time
 import os
 import sys
@@ -9,11 +9,8 @@ import json
 import re
 import urllib2
 
-wunderground_station = 'KCASONOM27' #specify a station close to SEO, e.g. LOLO Sonoma Farms
-wunderground_max_forecast_hours = 12 #how many hours of forecast should we show?
-
 def doTest(command, user_name):
-    send_message("", [{"fields": [{"title": "Priority","value": "<https://icons.wxug.com/graphics/clear_30x19.gif>","short": True},{"title": "Priority","value": "Low","short": True}]}])    
+    send_message("", [{"fields": [{"title": "Priority","value": "<http://i.imgur.com/nwo13SM.png|test>","short": True},{"title": "Priority","value": "Low","short": True}]}])    
 
 #get weather from Wunderground
 def getForecast(command, user_name):
@@ -187,6 +184,10 @@ read_delay_s=1
 reconnect_delay_s=10
 #name of this book
 bot_name='Itzamna'
+#specify a station close to SEO, e.g. LOLO Sonoma Farms
+wunderground_station = 'KCASONOM27'
+#how many hours of forecast should we show? 
+wunderground_max_forecast_hours = 12 
 ###############################
 #CHANGE THESE VALUES AS NEEDED#
 ############################### 

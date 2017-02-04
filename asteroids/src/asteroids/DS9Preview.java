@@ -83,7 +83,7 @@ public class DS9Preview {
     	File [] files = dir.listFiles(new FilenameFilter() {
     	    @Override
     	    public boolean accept(File dir, String name) {
-    	        return name.endsWith(".fits");
+    	        return (name.endsWith(".fits") || name.endsWith(".fit"));
     	    }
     	});
 
@@ -101,12 +101,18 @@ public class DS9Preview {
 	    		count++;
 		        String sequence = String.format("%d", count);
 	    		
-		        Pattern rSequence = Pattern.compile("[\\_\\.]([0-9]{3})\\.");
+		        //Pattern rSequence = Pattern.compile("[\\_\\.]([0-9]{3})\\.");
+		        //Matcher m = rSequence.matcher(tempFile.getName());
+                //if(m.find()) {
+                //	sequence = m.group(1).trim();
+                //} 
+		        Pattern rSequence = Pattern.compile("\\.(201[0-9]\\_[0-9][0-9]\\_[0-9][0-9]T[0-2][0-9]\\_[0-9][0-9]\\_[0-9][0-9])\\.");
 		        Matcher m = rSequence.matcher(tempFile.getName());
                 if(m.find()) {
                 	sequence = m.group(1).trim();
-                } 
-	    		
+                } 		        
+		        
+		        
 	    		File inputFile = new File(tempPath + "/" + sequence + ".fits");
     			inputFile.mkdirs();
     			Files.copy(tempFile.toPath(), inputFile.toPath(), StandardCopyOption.REPLACE_EXISTING);

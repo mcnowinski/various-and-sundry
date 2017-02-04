@@ -9,6 +9,8 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.Duration;
+import java.time.LocalTime;
+import java.time.LocalDate;
 
 import javax.swing.JFileChooser;
 
@@ -22,10 +24,13 @@ public class HorizonsByDay {
     static final String moonPhaseAngName = "T-O-M"; //where is the moon?
     static final String moonIllumName = "MN_Illu%"; //where is the moon?
     static final String galacticLatName = "GlxLat";
+    static final String raName = "R.A._(ICRF/J2000.0)";
+    static final String decName = "DEC_(ICRF/J2000.0)";    
     static final double apMagMin = 17.0;	//only process days where apparent magnitude is brighter than this number	
     static final int stepSizeMin = 15;	//time step size in minutes of ephemeris
-	static final LocalDateTime dtStart = LocalDateTime.of(2016, 12, 10, 0, 0); //reference start date (e.g. beginning of IRTF session)
-    
+	//static final LocalDateTime dtStart = LocalDateTime.of(2016, 12, 30, 0, 0); //reference start date (e.g. beginning of IRTF session)
+	static final LocalDateTime dtStart = LocalDateTime.of(LocalDate.now(), LocalTime.MIDNIGHT).plusDays(1);
+	
 	public int id = 1;
 	
 	//constructor
@@ -82,12 +87,22 @@ public class HorizonsByDay {
         int declinationIndex = -1;
         int elevationIndex = -1;
         int galacticLatIndex = -1;
+        int raIndex = -1;
+        int decIndex = -1;
+        int ibpIndex = -1; //INTERFERING BODYLUNAR PRESENCE
         double apMag = 0.0;
+        double brightestApMag = 100.0;
+        String dateBrightestApMag = "";
+		double moonPhaseAngBrightestApMag = 0.0;
+		double moonIllumBrightestApMag = 0.0;
         double phaseAng = 0.0;
         double moonPhaseAng = 0.0;
         double moonIllum = 0.0;
         double elevMax = 0.0, elevMin = 0.0;  
         double galacticLat = 0.0;
+        String ra = "";
+        String dec = "";
+        String ibp = "";
                
         LocalDateTime dt_start = LocalDateTime.now();
         LocalDateTime dt;
@@ -217,6 +232,27 @@ public class HorizonsByDay {
 	                	if(galacticLatIndex == -1) {
 	                		System.out.println("Error. Galactic latitude column not found!");
 	                	}
+	                	//find RA
+	                	for(int col=0; col<fields.length; col++) {
+	                		if(fields[col].trim().equals(raName)) {
+	                			raIndex = col;
+	                			ibpIndex = raIndex-1;
+	                			break;
+	                		}
+	                	}
+	                	if(raIndex == -1) {
+	                		System.out.println("Error. RA column not found!");
+	                	}
+	                	//find DEC
+	                	for(int col=0; col<fields.length; col++) {
+	                		if(fields[col].trim().equals(decName)) {
+	                			decIndex = col;
+	                			break;
+	                		}
+	                	}
+	                	if(decIndex == -1) {
+	                		System.out.println("Error. DEC column not found!");
+	                	}	                	
 	                	csvHeader = "Target Name," + line.trim() + "\n";
 	                	//System.out.println(csvHeader);
 	                } 
@@ -225,6 +261,7 @@ public class HorizonsByDay {
                 //csv end?
                 //r = Pattern.compile("^\\$\\$EOE");
 	            if(isCsv) {
+	            	//System.out.println(line);
 	                m = rCsvEnd.matcher(line);
 	                if(m.find()) {
 	                	isCsv = false;
@@ -258,8 +295,25 @@ public class HorizonsByDay {
 	                			if(elev > elevMax)
 	                				elevMax = elev;
 	                			if(elev < elevMin)
-	                				elevMin = elev;	                			
+	                				elevMin = elev;
+	                			//get RA/DEC at transit
+                				ibp = fields[ibpIndex];
+                				//System.out.println(ibp);
+                				if(ibp.trim().equals("t")) {
+	                				ra = fields[raIndex];
+	                				ra = ra.replace(' ', ':');
+	                				dec = fields[decIndex];	 
+	                				dec = dec.replace(' ', ':');
+	                				//System.out.println(ra+","+dec);
+                				}
 		                		steps++;
+	                		}
+	                		//find the occurrence of the brightest appearance
+	                		if(brightestApMag > Double.parseDouble(fields[apMagIndex])) {
+	                			brightestApMag = Double.parseDouble(fields[apMagIndex]);
+	                			dateBrightestApMag = dt.format(DateTimeFormatter.ofPattern("MM/dd/uuuu"));
+                				moonPhaseAngBrightestApMag = Double.parseDouble(fields[moonPhaseAngIndex]);
+                				moonIllumBrightestApMag = Double.parseDouble(fields[moonIllumIndex]);
 	                		}
                     	}	              		
                     }	
@@ -283,7 +337,12 @@ public class HorizonsByDay {
         }
 		
 		if(foundMatch) {
-    		csv += 	target + ":\n\t" + dt_start.format(DateTimeFormatter.ofPattern("MM/dd/uuuu @ HH:mm")) + " for " + String.format("%.1f", ((double)steps*stepSizeMin/60.0)) + " hours.\n\t" +  "Magnitude = " + apMag + "." + " Min/Max Elev. = " + elevMin + "/" + elevMax + " deg." + " Phase Angle = " + phaseAng + " deg."  + "\n\tMoon Phase Angle = " + moonPhaseAng + " deg." + " Moon Illumination = " + moonIllum + "%." + "\n\tGalactic Latitude = " + galacticLat + " deg.";
+    		csv += 	target + ":\n\t" + dt_start.format(DateTimeFormatter.ofPattern("MM/dd/uuuu @ HH:mm")) + " for " + String.format("%.1f", ((double)steps*stepSizeMin/60.0)) + " hours." +
+    				"\n\tRA/DEC (transit) = " + ra + " " + dec + "." +
+    				"\n\tMagnitude = " + apMag + "." + " Min/Max Elev. = " + elevMin + "/" + elevMax + " deg." + " Phase Angle = " + phaseAng + " deg."  +
+    				"\n\tMax. Magnitude = " + brightestApMag + " on " + dateBrightestApMag + " (Moon Phase Angle = " + moonPhaseAngBrightestApMag + " deg, " + " Moon Illumination = " + moonIllumBrightestApMag + "%)." +
+    				"\n\tMoon Phase Angle = " + moonPhaseAng + " deg." + " Moon Illumination = " + moonIllum + "%." +
+    				"\n\tGalactic Latitude = " + galacticLat + " deg.";
 		}
 		
 		return new HorizonsByDayData(target, csv, gantt, csvHeader);

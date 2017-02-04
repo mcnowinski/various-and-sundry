@@ -73,8 +73,8 @@ import nom.tam.fits.HeaderCard;
 
 public class AstroImageProcessorGui extends JFrame {
 	private static final long serialVersionUID = -1433615005454840487L;
-	protected String version = "v3.4.7";
-	protected String versionDate = "July 19, 2016";
+	protected String version = "v3.4.8";
+	protected String versionDate = "January 26, 2017";
 	private final static int RECOMMENDED_HEAP = 768;
 
 	JList status;
@@ -370,7 +370,7 @@ public class AstroImageProcessorGui extends JFrame {
 	private void setupInvertAndColorPanel() {
 		invertImage = false;
 		colorSpectrum = false;
-		invertY = true; // default invert Y to true?
+		invertY = false; // default invert Y to true?
 		invertAndColorPanel = new JPanel();
 		invertAndColorPanel.setLayout(new FlowLayout());
 		invertAndColorPanel.setBorder(BorderFactory.createCompoundBorder(
@@ -1250,7 +1250,7 @@ public class AstroImageProcessorGui extends JFrame {
 					ssip = new SingleSimpleImageProcess(
 							fitsAlignFilePaths[fitsAlignCurrentIdx]);
 					fitsAlignFilePaths[fitsAlignCurrentIdx] = removeExtension(fitsAlignFilePaths[fitsAlignCurrentIdx])
-							+ "_align.fits";
+							+ "_align.fits.tmp";
 					pixieImageDisplay = ssip.createRGBPixieImage();
 					mouseClick = new Dimension(
 							pixieImageDisplay[0].getColCount() / 2,
@@ -1342,21 +1342,21 @@ public class AstroImageProcessorGui extends JFrame {
 					setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
 					return;
 				}
-				statusMsg("Cleaned " + fitsFilePaths[ii]);
+				//statusMsg("Cleaned " + fitsFilePaths[ii]);
 				// normalize it to the reference file
 				try {
 					ssip.normalize(fitsFilePaths[3]);
 					fitsNormalizedFilePaths[ii] = removeExtension(fitsFilePaths[ii])
-							+ "_hspotR_norm.fits";
+							+ "_hspotR_norm.fits.tmp";
 				} catch (PixieImageException e) {
 					statusMsg("RGB plot wizard aborted!");
 					messageDialog("Error. Unknown FITS format.");
 					setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
 					return;
 				}
-				statusMsg("Normalized " + fitsFilePaths[ii]);
+				//statusMsg("Normalized " + fitsFilePaths[ii]);
 				// save the normalized file
-				statusMsg("Saving " + fitsNormalizedFilePaths[ii] + "...");
+				//statusMsg("Saving " + fitsNormalizedFilePaths[ii] + "...");
 				try {
 					ssip.writeOutFitsFile(fitsNormalizedFilePaths[ii]);
 				} catch (PixieImageException e) {
@@ -1366,7 +1366,7 @@ public class AstroImageProcessorGui extends JFrame {
 					setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
 					return;
 				}
-				statusMsg("Saved " + fitsFilePaths[ii]);
+				//statusMsg("Saved " + fitsFilePaths[ii]);
 			}
 
 			setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
@@ -1384,7 +1384,7 @@ public class AstroImageProcessorGui extends JFrame {
 				ssip = new SingleSimpleImageProcess(
 						fitsAlignFilePaths[fitsAlignCurrentIdx]);
 				fitsAlignFilePaths[fitsAlignCurrentIdx] = removeExtension(fitsAlignFilePaths[fitsAlignCurrentIdx])
-						+ "_align.fits";
+						+ "_align.fits.tmp";
 				pixieImageDisplay = ssip.createRGBPixieImage();
 				mouseClick = new Dimension(
 						pixieImageDisplay[0].getColCount() / 2,
@@ -1479,7 +1479,7 @@ public class AstroImageProcessorGui extends JFrame {
 
 		WorldCoords wc = new WorldCoords(raDec[0], raDec[1]);
 		
-		statusMsg("RA (H:M:S) = "+wc.getRA().toString()+", Dec (H:M:S) = "+wc.getDec().toString()/*"Ra="+raDec[0]+", Dec="+raDec[1]*/);
+		statusMsg("RA (H:M:S) = "+wc.getRA().toString()+", Dec (D:M:S) = "+wc.getDec().toString()/*"Ra="+raDec[0]+", Dec="+raDec[1]*/);
 	}
 	
 	protected void mouseRightClickedOnZoomedImage(MouseEvent e) {

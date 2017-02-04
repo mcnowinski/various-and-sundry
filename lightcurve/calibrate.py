@@ -255,13 +255,13 @@ for i in range(0,len(im)):
 #if there is just one, make it two of the same!
 if (len(im) == 1):
     flats += ','+flat_corrected
-flat_path += 'master/'
+flat_path_master = flat_path+'master/'
 try:
-    os.mkdir(flat_path)
+    os.mkdir(flat_path_master)
 except:
     pass    
-flat_path += flat_master    
-logme('Creating master flat frame (%s)...'%(flat_path))
+flat_path_master += flat_master    
+logme('Creating master flat frame (%s)...'%(flat_path_master))
 #scale the flat component frames to have the same mean value, 10000.0
 scaling_func = lambda arr: 10000.0/np.ma.median(arr)
 #combine them
@@ -279,7 +279,10 @@ header['DARKCORR'] = flat_dark
 if(count > 0):
     flat_ave_exptime = flat_ave_exptime/count
     header['EXPTIME'] = flat_ave_exptime  
-hdulist.writeto(flat_path, clobber=True)
+hdulist.writeto(flat_path_master, clobber=True)
+#clean up '.corrected' temp files
+for f in glob.glob(flat_path+'*.corrected'):
+    os.remove(f)
  
 #get a list of all FITS files in the input directory
 fits_files=glob.glob(input_path+'*.fits')+glob.glob(input_path+'*.fit')
