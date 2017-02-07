@@ -17,6 +17,8 @@ def doTest(command, user_name):
     send_message(output)
     output = subprocess.check_output('sun', shell=True, stderr=subprocess.STDOUT)
     send_message(output)	
+    output = subprocess.check_output('moon', shell=True, stderr=subprocess.STDOUT)
+    send_message(output)
     output = subprocess.check_output('tx slit', shell=True, stderr=subprocess.STDOUT)
     send_message(output)
     output = subprocess.check_output('tx lock', shell=True, stderr=subprocess.STDOUT)
@@ -25,6 +27,14 @@ def doTest(command, user_name):
     send_message(output)
     output = subprocess.check_output('who', shell=True, stderr=subprocess.STDOUT)
     send_message(output)   
+    output = subprocess.check_output('tx dome', shell=True, stderr=subprocess.STDOUT)
+    send_message(output)  
+    output = subprocess.check_output('tx track', shell=True, stderr=subprocess.STDOUT)
+    send_message(output)
+    output = subprocess.check_output('tx where', shell=True, stderr=subprocess.STDOUT)
+    send_message(output)      
+    output = subprocess.check_output('tx mets', shell=True, stderr=subprocess.STDOUT)
+    send_message(output) 
     #send_message("", [{"fields": [{"title": "Priority","value": "<http://i.imgur.com/nwo13SM.png|test>","short": True},{"title": "Priority","value": "Low","short": True}]}])    
 
 #get weather from Wunderground
