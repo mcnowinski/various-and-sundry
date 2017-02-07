@@ -8,9 +8,20 @@ import datetime
 import json
 import re
 import urllib2
+import subprocess
 
 def doTest(command, user_name):
-    send_message("", [{"fields": [{"title": "Priority","value": "<http://i.imgur.com/nwo13SM.png|test>","short": True},{"title": "Priority","value": "Low","short": True}]}])    
+    output = subprocess.check_output('date -u', shell=True, stderr=subprocess.STDOUT)
+    send_message(output)
+    output = subprocess.check_output('tx taux', shell=True, stderr=subprocess.STDOUT)
+    send_message(output)
+    output = subprocess.check_output('sun', shell=True, stderr=subprocess.STDOUT)
+    send_message(output)	
+    output = subprocess.check_output('tx slit', shell=True, stderr=subprocess.STDOUT)
+    send_message(output)
+    output = subprocess.check_output('tx lock', shell=True, stderr=subprocess.STDOUT)
+    send_message(output)
+    #send_message("", [{"fields": [{"title": "Priority","value": "<http://i.imgur.com/nwo13SM.png|test>","short": True},{"title": "Priority","value": "Low","short": True}]}])    
 
 #get weather from Wunderground
 def getForecast(command, user_name):
@@ -188,6 +199,8 @@ bot_name='Itzamna'
 wunderground_station = 'KCASONOM27'
 #how many hours of forecast should we show? 
 wunderground_max_forecast_hours = 12 
+#giphy shown when itzamna app is first started
+welcome_giphy_url = 'http://www.nowinski.com/downloads/itzamna.gif'
 ###############################
 #CHANGE THESE VALUES AS NEEDED#
 ############################### 
@@ -246,6 +259,8 @@ while True:
                 slack_channel = channel['id']
         if slack_channel == None:
             abort('Error! Could not find #%s.'%slack_channel_name)
+		#send welcome message
+        send_message("", [{"image_url":"%s"%welcome_giphy_url, "title":"Itzamna is here! Let your petitions be known..."}])
         logme('Listening for commands on #%s...'%slack_channel_name)
         #data loop  
         while True:

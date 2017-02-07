@@ -62,20 +62,31 @@ function getImage {
     fi
 }
 
+NUM_ALERTS=50
+SNOOZE_TIME_S=10
 #is slit open? if not, exit
 function checkSlit {
   if [ -n "`tx slit | grep "slit=open"`" ]
   then
   	echo "Slit is open." > /dev/null
   else
-	alert "Slit closed unexpectedly. Aborting..."
-	closedown
+	alert "Slit closed unexpectedly."
+	#closedown
 	#exit 1
-	while true
-	do
-		alert "Slit closed unexpectedly. Observatory closed."
-		sleep 60
+	#while true
+	#do
+	#	alert "Slit closed unexpectedly."
+	#	sleep 60
+	#done
+	COUNTER=0
+	while [  $COUNTER -lt $NUM_ALERTS ]; do
+		let COUNTER=COUNTER+1 
+		alert "Slit closed unexpectedly ($COUNTER of $NUM_ALERTS alerts)."
+		sleep $SNOOZE_TIME_S
 	done
+	alert "Slit closed unexpectedly. Closing down observatory..."
+	squeezeit
+	alert "Slit closed unexpectedly. Observatory closed."
   fi
 }
 
@@ -96,18 +107,31 @@ function checkAlt {
   fi
 }
 
-MAXIMUM_CLOUDS=40
+MAXIMUM_CLOUDS_IMAGE=35
+MAXIMUM_CLOUDS_SLIT=70
 #check to be sure cloud cover is not too thick
 function checkClouds {
   local CLOUDS=`tx taux | grep -o 'cloud=[0-9\.\+\-]\+' | cut -c7-`
   local CLOUD_PCT=$(expr $CLOUDS*100 | bc)
-  if [ ${CLOUD_PCT%.*} -gt ${MAXIMUM_CLOUDS%.*} ]
+  if [ ${CLOUD_PCT%.*} -gt ${MAXIMUM_CLOUDS_SLIT%.*} ]
+  then
+ 	alert "Too many clouds (${CLOUD_PCT%.*}%). Closing observatory..."
+	squeezeit
+	exit 1
+  fi
+  if [ ${CLOUD_PCT%.*} -gt ${MAXIMUM_CLOUDS_IMAGE%.*} ]
   then
  	alert "Too many clouds (${CLOUD_PCT%.*}%). Pausing image sequence..."
 	#closedown
 	#exit 1
-	while [ ${CLOUD_PCT%.*} -gt ${MAXIMUM_CLOUDS%.*} ]
+	while [ ${CLOUD_PCT%.*} -gt ${MAXIMUM_CLOUDS_IMAGE%.*} ]
 	do
+		if [ ${CLOUD_PCT%.*} -gt ${MAXIMUM_CLOUDS_SLIT%.*} ]
+		then
+			alert "Too many clouds (${CLOUD_PCT%.*}%). Closing observatory..."
+			squeezeit
+			exit 1
+		fi	
 		debug "Cloud cover is ${CLOUD_PCT%.*}%."
 		sleep 60
 		checkSlit
