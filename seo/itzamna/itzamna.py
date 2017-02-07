@@ -37,6 +37,11 @@ def doTest(command, user_name):
     send_message(output) 
     #send_message("", [{"fields": [{"title": "Priority","value": "<http://i.imgur.com/nwo13SM.png|test>","short": True},{"title": "Priority","value": "Low","short": True}]}])    
 
+def doWelcome():
+    send_message("", [{"image_url":"%s"%welcome_giphy_url, "title":"Itzamna is here! Let your petitions be known..."}])
+    #show help
+    getHelp('\\help', 'Mere Mortals')    
+
 #get weather from Wunderground
 def getForecast(command, user_name):
     logme('Retrieving the hourly forecast from wunderground.com...')  
@@ -274,7 +279,7 @@ while True:
         if slack_channel == None:
             abort('Error! Could not find #%s.'%slack_channel_name)
 		#send welcome message
-        send_message("", [{"image_url":"%s"%welcome_giphy_url, "title":"Itzamna is here! Let your petitions be known..."}])
+        doWelcome()
         logme('Listening for commands on #%s...'%slack_channel_name)
         #data loop  
         while True:
