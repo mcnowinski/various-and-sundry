@@ -9,6 +9,11 @@ import json
 import re
 import urllib2
 import subprocess
+import astropy.coordinates as coord
+import astropy.units as u
+
+#http://server3.sky-map.org/imgcut?survey=SDSS&img_id=all&angle=0.9375&ra=23.50142&de=47.253&width=400&height=400&projection=tan&interpolation=bicubic&jpeg_quality=0.8&output_type=jpeg
+#http://server3.wikisky.org/map?custom=1&language=EN&type=PART&w=500&h=500&angle=5.0&ra=9.9166666666666666666666666666667&de=69.066666666666666666666666666667&rotation=0.0&mag=10&max_stars=100000&zoom=10&borders=1&border_color=400000&show_grid=0&grid_color=404040&grid_color_zero=808080&grid_lines_width=1.0&grid_ra_step=1.0&grid_de_step=15.0&show_const_lines=0&constellation_lines_color=006000&constellation_lines_width=1.0&show_const_names=&constellation_names_color=006000&const_name_font_type=PLAIN&const_name_font_name=SanSerif&const_name_font_size=15&show_const_boundaries=&constellation_boundaries_color=000060&constellation_boundaries_width=1.0&background_color=000000&output=PNG
 
 def doTest(command, user_name):
     output = subprocess.check_output('date -u', shell=True, stderr=subprocess.STDOUT)
@@ -31,17 +36,86 @@ def doTest(command, user_name):
     send_message(output)  
     output = subprocess.check_output('tx track', shell=True, stderr=subprocess.STDOUT)
     send_message(output)
-    output = subprocess.check_output('tx where', shell=True, stderr=subprocess.STDOUT)
-    send_message(output)      
+    #output = subprocess.check_output('tx where', shell=True, stderr=subprocess.STDOUT)
+    #send_message(output)      
     output = subprocess.check_output('tx mets', shell=True, stderr=subprocess.STDOUT)
     send_message(output) 
     #send_message("", [{"fields": [{"title": "Priority","value": "<http://i.imgur.com/nwo13SM.png|test>","short": True},{"title": "Priority","value": "Low","short": True}]}])    
 
-def doWelcome():
-    send_message("", [{"image_url":"%s"%welcome_giphy_url, "title":"Itzamna is here! Let your petitions be known..."}])
-    #show help
-    getHelp('\\help', 'Mere Mortals')    
+def getSun(command, user_name):
+    logme('Retrieving current sun information...')  	
 
+    output = subprocess.check_output('sun', shell=True, stderr=subprocess.STDOUT)
+	#21:30:51.07 -14:42:54.0 2017.107 sun alt=35.8
+    match = re.search('^([\\-\\+0-9\\:\\.]+) ([\\-\\+0-9\\:\\.]+) ([\\-\\+0-9\\.]+) sun alt=([\\-\\+0-9\\.]+)', output)
+    if(match):
+        send_message('Sun: RA=%s, DEC=%s, Alt=%s deg'%(match.group(1),match.group(2),match.group(4)))
+        send_message('\n')
+    else:
+        send_message('Error. Command (%s) did not return a valid response.'%command)
+        logme('Error. Command (%s) did not return a valid response (%s).'%(command,output))
+		
+def getMoon(command, user_name):
+    logme('Retrieving current moon information...') 	
+	
+    output = subprocess.check_output('moon', shell=True, stderr=subprocess.STDOUT)
+    #07:38:11.68 +17:30:06.9 2017.107 moon alt=-21.1 phase=0.85 lunation=1164
+    match = re.search('^([\\-\\+0-9\\:\\.]+) ([\\-\\+0-9\\:\\.]+) ([\\-\\+0-9\\.]+) moon alt=([\\-\\+0-9\\.]+) phase=([\\-\\+0-9\\.]+) lunation=([\\-\\+0-9]+)', output)
+    if(match):
+        send_message('Moon: Phase=%d%%, RA=%s, DEC=%s, Alt=%s deg'%(int(float(match.group(5))*100.0), match.group(1),match.group(2),match.group(4)))
+        send_message('\n')
+    else:
+        send_message('Error. Command (%s) did not return a valid response.'%command)
+        logme('Error. Command (%s) did not return a valid response (%s).'%(command,output))
+		
+def getWhere(command, user_name):
+    logme('Retrieving the current telescope pointing information...')  	
+
+    output = subprocess.check_output('tx where', shell=True, stderr=subprocess.STDOUT)
+	#done where ra=05:25:25.11 dec=+38:17:17.0 equinox=2017.105 ha=0.010 secz=1.00 alt=90.0 az=265.1 slewing=0
+    match = re.search('^done where ra=([\\-\\+0-9\\:\\.]+) dec=([\\-\\+0-9\\:\\.]+) equinox=([\\-\\+0-9\\.]+) ha=([\\-\\+0-9\\.]+) secz=([\\-\\+0-9\\.]+) alt=([\\-\\+0-9\\.]+) az=([\\-\\+0-9\\.]+) slewing=([\\-\\+0-9\\.]+)', output)
+    if(match):
+        send_message('Telescope Pointing:')
+        send_message('>RA: %s'%match.group(1))
+        send_message('>DEC: %s'%match.group(2))
+        send_message('>Alt: %s'%match.group(6))		
+        send_message('>Az: %s'%match.group(7))
+        is_slewing = int(match.group(8))
+        if is_slewing == 0:
+          send_message('>Slewing? No')
+        else:
+          send_message('>Slewing? Yes')
+        ra_decimal = coord.Angle(match.group(1) + '  hours')
+        dec_decimal = coord.Angle(match.group(2) + '  degrees')
+        #skymap_dot_org_image_url='http://server3.sky-map.org/imgcut?survey=SDSS&img_id=all&angle=0.9375&ra=%f&de=%f&width=400&height=400&projection=tan&interpolation=bicubic&jpeg_quality=0.8&output_type=jpeg'%(ra_decimal.hour,dec_decimal.degree)
+        #url='http://server3.wikisky.org/map?custom=1&language=EN&type=PART&w=500&h=500&angle=5.0&ra=%f&de=%f&rotation=0.0&mag=8&max_stars=100000&zoom=10&borders=1&border_color=400000&show_grid=0&grid_color=404040&grid_color_zero=808080&grid_lines_width=1.0&grid_ra_step=1.0&grid_de_step=15.0&show_const_lines=0&constellation_lines_color=006000&constellation_lines_width=1.0&show_const_names=&constellation_names_color=006000&const_name_font_type=PLAIN&const_name_font_name=SanSerif&const_name_font_size=15&show_const_boundaries=&constellation_boundaries_color=000060&constellation_boundaries_width=1.0&background_color=000000&output=PNG'%(ra_decimal.hour,dec_decimal.degree)
+        #send_message("", [{"image_url":"%s"%url, "title":"Sky-Map View"}])
+        url='http://server3.sky-map.org/imgcut?survey=DSS2&img_id=all&angle=0.5&ra=%f&de=%f&width=400&height=400&projection=tan&interpolation=bicubic&jpeg_quality=0.8&output_type=jpeg'%(ra_decimal.hour,dec_decimal.degree)
+        send_message("", [{"image_url":"%s"%url, "title":"Sky Position (DSS2):"}])
+        send_message('\n')
+        #logme('%f'%ra_decimal.hour)
+        #logme('%f'%dec_decimal.degree)		
+		#send_message(output)
+    else:
+        send_message('Error. Command (%s) did not return a valid response.'%command)
+        logme('Error. Command (%s) did not return a valid response (%s).'%(command,output))
+		
+	
+def doWelcome():
+    logme('Sending welcome message to Slack users...')  
+
+    send_message("", [{"image_url":"%s"%welcome_giphy_url, "title":"Itzamna is here! Let your wishes be known..."}])
+    #show help
+    getHelp('\\help', 'Fear not, mortals')    
+
+#get ClearDarkSky chart
+def getClearDarkSky(command, user_name):
+	logme('Retrieving the current Clear Sky charts for SEO...')  
+
+	send_message("", [{"image_url":"http://www.cleardarksky.com/c/SonomaCAcsk.gif?c=640834", "title":"Lake Sonoma Clear Sky Chart"}])
+	send_message("", [{"image_url":"http://www.cleardarksky.com/c/SmnCAcsk.gif?c=640834", "title":"Sonoma Clear Sky Chart"}])
+	send_message("\n")	
+	
 #get weather from Wunderground
 def getForecast(command, user_name):
     logme('Retrieving the hourly forecast from wunderground.com...')  
@@ -52,7 +126,7 @@ def getForecast(command, user_name):
     #print json_string
     hourly_forecasts = parsed_json['hourly_forecast']
     count = 0
-    send_message("Weather forecast at SEO:")
+    send_message("Weather Forecast:")
     for hourly_forecast in hourly_forecasts:
         count += 1
         if count > wunderground_max_forecast_hours:
@@ -82,7 +156,7 @@ def getWeather(command, user_name):
     dewpoint = parsed_json['current_observation']['dewpoint_string']
     icon_url = parsed_json['current_observation']['icon_url']
     #send_message("", [{"image_url":"%s"%icon_url, "title":"Weather at SEO (%s):"%station}])
-    send_message("", [{"image_url":"%s"%icon_url, "title":"Weather at SEO:"}])
+    send_message("", [{"image_url":"%s"%icon_url, "title":"Current Weather:"}])
     send_message(">Conditions: %s" %(weather))    
     send_message(">Temperature: %s" %(temp))
     send_message(">Winds: %s" %(wind))
@@ -93,7 +167,14 @@ def getWeather(command, user_name):
 
 def getHelp(command, user_name):
     logme('Processing the "help" command...')
-    send_message(user_name + ', here are some helpful tips:\n>`\\help` shows this message\n>`\\weather` shows the current weather conditions at SEO\n>`\\forecast` shows the hourly weather forecast at SEO\n')
+	
+    send_message(	user_name + ', here are some helpful tips:\n' + \
+                    '>`\\help` shows this message\n' + \
+                    '>`\\where` shows where the telescope is pointing\n' + \
+                    '>`\\weather` shows the current weather conditions\n' + \
+					'>`\\forecast` shows the hourly weather forecast\n' + \
+					'>`\\clearsky` shows the Clear Sky chart(s)\n' \
+					)
 
 def abort(msg):
     logme(msg)
@@ -182,7 +263,7 @@ def process_messages(msgs):
                         logme('User %s sent text (%s) on %s.'%(user_name, msg['text'],dt_last_message.strftime("%Y/%m/%d @ %H:%M:%S")))
                     #is this a command, starts with \      
                 else:
-                    logme('Warning!. Ignoring old/duplicate message from #%s ("%s" from %s).'%(slack_channel_name,msg['text'],user_name))    
+                    logme('Warning! Ignoring old/duplicate message from #%s ("%s" from %s).'%(slack_channel_name,msg['text'],user_name))    
                 #send_message('You are the greatest, %s.'%user_name)       
 
 def parse_command(text, user_name, dt):
@@ -233,6 +314,10 @@ commands = [
 #['^\\\\(weather)(\s)?(hourly)?', getWeather],
 ['^\\\\(weather)', getWeather],
 ['^\\\\(forecast)', getForecast],
+['^\\\\(clearsky)',getClearDarkSky],
+['^\\\\(where)',getWhere],
+['^\\\\(sun)',getSun],
+['^\\\\(moon)',getMoon],
 ['^\\\\(test)', doTest],
     
 ]
