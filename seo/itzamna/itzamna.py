@@ -10,43 +10,92 @@ import re
 import urllib2
 import subprocess
 import astropy.coordinates as coord
+from astropy.coordinates import SkyCoord
 import astropy.units as u
 
 #http://server3.sky-map.org/imgcut?survey=SDSS&img_id=all&angle=0.9375&ra=23.50142&de=47.253&width=400&height=400&projection=tan&interpolation=bicubic&jpeg_quality=0.8&output_type=jpeg
 #http://server3.wikisky.org/map?custom=1&language=EN&type=PART&w=500&h=500&angle=5.0&ra=9.9166666666666666666666666666667&de=69.066666666666666666666666666667&rotation=0.0&mag=10&max_stars=100000&zoom=10&borders=1&border_color=400000&show_grid=0&grid_color=404040&grid_color_zero=808080&grid_lines_width=1.0&grid_ra_step=1.0&grid_de_step=15.0&show_const_lines=0&constellation_lines_color=006000&constellation_lines_width=1.0&show_const_names=&constellation_names_color=006000&const_name_font_type=PLAIN&const_name_font_name=SanSerif&const_name_font_size=15&show_const_boundaries=&constellation_boundaries_color=000060&constellation_boundaries_width=1.0&background_color=000000&output=PNG
 
-def doTest(command, user_name):
-    output = subprocess.check_output('date -u', shell=True, stderr=subprocess.STDOUT)
+def runSubprocess(command_array):
+    #command array is array with command and all required parameters
+    try:
+        sp = subprocess.Popen(command_array, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
+        logme('Running subprocess ("%s" %s)...'%(' '.join(command_array), sp.pid))
+        output, error = sp.communicate()    
+        return (output, error, sp.pid)
+    except:
+        logme('Error. Subprocess ("%s" %d) failed.'%(' '.join(command_array)))
+        return ('', '', 0)
+
+def doTest(command, user):
+    (output, error, pid) = runSubprocess(['date','-u'])
     send_message(output)
-    output = subprocess.check_output('tx taux', shell=True, stderr=subprocess.STDOUT)
+    (output, error, pid) = runSubprocess(['tx','taux'])
     send_message(output)
-    output = subprocess.check_output('sun', shell=True, stderr=subprocess.STDOUT)
-    send_message(output)	
-    output = subprocess.check_output('moon', shell=True, stderr=subprocess.STDOUT)
+    (output, error, pid) = runSubprocess(['tx','slit'])
     send_message(output)
-    output = subprocess.check_output('tx slit', shell=True, stderr=subprocess.STDOUT)
+    (output, error, pid) = runSubprocess(['tx','lock']) 
     send_message(output)
-    output = subprocess.check_output('tx lock', shell=True, stderr=subprocess.STDOUT)
+    (output, error, pid) = runSubprocess(['tx','lamps']) 
     send_message(output)
-    output = subprocess.check_output('tx lamps', shell=True, stderr=subprocess.STDOUT)
+    (output, error, pid) = runSubprocess(['who']) 
     send_message(output)
-    output = subprocess.check_output('who', shell=True, stderr=subprocess.STDOUT)
-    send_message(output)   
-    output = subprocess.check_output('tx dome', shell=True, stderr=subprocess.STDOUT)
-    send_message(output)  
-    output = subprocess.check_output('tx track', shell=True, stderr=subprocess.STDOUT)
-    send_message(output)
-    #output = subprocess.check_output('tx where', shell=True, stderr=subprocess.STDOUT)
-    #send_message(output)      
-    output = subprocess.check_output('tx mets', shell=True, stderr=subprocess.STDOUT)
+    (output, error, pid) = runSubprocess(['tx','dome']) 
+    send_message(output) 
+    (output, error, pid) = runSubprocess(['tx','track']) 
+    send_message(output)    
+    (output, error, pid) = runSubprocess(['tx','mets']) 
     send_message(output) 
     #send_message("", [{"fields": [{"title": "Priority","value": "<http://i.imgur.com/nwo13SM.png|test>","short": True},{"title": "Priority","value": "Low","short": True}]}])    
 
-def getSun(command, user_name):
-    logme('Retrieving current sun information...')  	
+def getObject(command, user):
+    match = re.search('^\\\\(find) ([a-zA-Z0-9\\s]+)', command)
+    if(match):
+        object_name = match.group(2)
+    else:
+        logme('Error. Unexpected command format (%s).'%command)
+        return        
+    logme('Search for object (%s)...'%object_name)
+    try:
+        object = SkyCoord.from_name(object_name)
+    except:
+        logme('Error. Could not find object (%s).'%object_name)
+        send_message('Sorry. Itzamna knows all but *still* could not find "%s".'%object_name)
+        return
+    logme('Object (%s) found at RA=%s, DEC=%s.'%(object_name, object.ra, object.dec))
+    send_message('Object (%s) found at RA=%s, DEC=%s.'%(object_name, object.ra, object.dec))
+    
+def isLocked():
+    logme('Checking to see if the telescope is locked...')
+    
+    locked_by = ""
+    (output, error, pid) = runSubprocess(['tx','lock'])
+    #print output
+    #done lock user=mcnowinski email=mcnowinski@gmail.com phone=7032869140 comment=slac timestamp=2017-02-10T20:32:03Z
+    match = re.search('^done lock user=([a-zA-Z]+) email=([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)', output)
+    if(match):
+        locked_by = match.group(1) + ' (' + match.group(2) + ')'
+        logme('Telescope is currently locked by %s.'%locked_by)
+    return locked_by
 
-    output = subprocess.check_output('sun', shell=True, stderr=subprocess.STDOUT)
-	#21:30:51.07 -14:42:54.0 2017.107 sun alt=35.8
+def getSlit(command, user):
+    logme('Retrieving dome slit status...')  
+    
+    (output, error, pid) = runSubprocess(['tx','slit'])    
+    #done slit slit=closed
+    match = re.search('^done slit slit=([a-zA-Z]+)', output)
+    if(match):
+        send_message('Slit is %s.'%(match.group(1)))
+        send_message('\n')
+    else:
+        send_message('Error. Command (%s) did not return a valid response.'%command)
+        logme('Error. Command (%s) did not return a valid response (%s).'%(command,output))
+    
+def getSun(command, user):
+    logme('Retrieving current sun information...')      
+
+    (output, error, pid) = runSubprocess(['sun'])
+    #21:30:51.07 -14:42:54.0 2017.107 sun alt=35.8
     match = re.search('^([\\-\\+0-9\\:\\.]+) ([\\-\\+0-9\\:\\.]+) ([\\-\\+0-9\\.]+) sun alt=([\\-\\+0-9\\.]+)', output)
     if(match):
         send_message('Sun: RA=%s, DEC=%s, Alt=%s deg'%(match.group(1),match.group(2),match.group(4)))
@@ -54,11 +103,11 @@ def getSun(command, user_name):
     else:
         send_message('Error. Command (%s) did not return a valid response.'%command)
         logme('Error. Command (%s) did not return a valid response (%s).'%(command,output))
-		
-def getMoon(command, user_name):
-    logme('Retrieving current moon information...') 	
-	
-    output = subprocess.check_output('moon', shell=True, stderr=subprocess.STDOUT)
+        
+def getMoon(command, user):
+    logme('Retrieving current moon information...')     
+    
+    (output, error, pid) = runSubprocess(['moon'])
     #07:38:11.68 +17:30:06.9 2017.107 moon alt=-21.1 phase=0.85 lunation=1164
     match = re.search('^([\\-\\+0-9\\:\\.]+) ([\\-\\+0-9\\:\\.]+) ([\\-\\+0-9\\.]+) moon alt=([\\-\\+0-9\\.]+) phase=([\\-\\+0-9\\.]+) lunation=([\\-\\+0-9]+)', output)
     if(match):
@@ -67,18 +116,18 @@ def getMoon(command, user_name):
     else:
         send_message('Error. Command (%s) did not return a valid response.'%command)
         logme('Error. Command (%s) did not return a valid response (%s).'%(command,output))
-		
-def getWhere(command, user_name):
-    logme('Retrieving the current telescope pointing information...')  	
+        
+def getWhere(command, user):
+    logme('Retrieving the current telescope pointing information...')      
 
-    output = subprocess.check_output('tx where', shell=True, stderr=subprocess.STDOUT)
-	#done where ra=05:25:25.11 dec=+38:17:17.0 equinox=2017.105 ha=0.010 secz=1.00 alt=90.0 az=265.1 slewing=0
+    (output, error, pid) = runSubprocess(['tx','where'])
+    #done where ra=05:25:25.11 dec=+38:17:17.0 equinox=2017.105 ha=0.010 secz=1.00 alt=90.0 az=265.1 slewing=0
     match = re.search('^done where ra=([\\-\\+0-9\\:\\.]+) dec=([\\-\\+0-9\\:\\.]+) equinox=([\\-\\+0-9\\.]+) ha=([\\-\\+0-9\\.]+) secz=([\\-\\+0-9\\.]+) alt=([\\-\\+0-9\\.]+) az=([\\-\\+0-9\\.]+) slewing=([\\-\\+0-9\\.]+)', output)
     if(match):
         send_message('Telescope Pointing:')
         send_message('>RA: %s'%match.group(1))
         send_message('>DEC: %s'%match.group(2))
-        send_message('>Alt: %s'%match.group(6))		
+        send_message('>Alt: %s'%match.group(6))        
         send_message('>Az: %s'%match.group(7))
         is_slewing = int(match.group(8))
         if is_slewing == 0:
@@ -94,30 +143,32 @@ def getWhere(command, user_name):
         send_message("", [{"image_url":"%s"%url, "title":"Sky Position (DSS2):"}])
         send_message('\n')
         #logme('%f'%ra_decimal.hour)
-        #logme('%f'%dec_decimal.degree)		
-		#send_message(output)
+        #logme('%f'%dec_decimal.degree)        
+        #send_message(output)
     else:
         send_message('Error. Command (%s) did not return a valid response.'%command)
         logme('Error. Command (%s) did not return a valid response (%s).'%(command,output))
-		
-	
+        
+    
 def doWelcome():
     logme('Sending welcome message to Slack users...')  
 
     send_message("", [{"image_url":"%s"%welcome_giphy_url, "title":"Itzamna is here! Let your wishes be known..."}])
     #show help
-    getHelp('\\help', 'Fear not, mortals')    
+    getHelp('\\help')
+
+    isLocked()    
 
 #get ClearDarkSky chart
-def getClearDarkSky(command, user_name):
-	logme('Retrieving the current Clear Sky charts for SEO...')  
+def getClearDarkSky(command, user):
+    logme('Retrieving the current Clear Sky charts for SEO...')  
 
-	send_message("", [{"image_url":"http://www.cleardarksky.com/c/SonomaCAcsk.gif?c=640834", "title":"Lake Sonoma Clear Sky Chart"}])
-	send_message("", [{"image_url":"http://www.cleardarksky.com/c/SmnCAcsk.gif?c=640834", "title":"Sonoma Clear Sky Chart"}])
-	send_message("\n")	
-	
+    send_message("", [{"image_url":"http://www.cleardarksky.com/c/SonomaCAcsk.gif?c=640834", "title":"Lake Sonoma Clear Sky Chart"}])
+    send_message("", [{"image_url":"http://www.cleardarksky.com/c/SmnCAcsk.gif?c=640834", "title":"Sonoma Clear Sky Chart"}])
+    send_message("\n")    
+    
 #get weather from Wunderground
-def getForecast(command, user_name):
+def getForecast(command, user):
     logme('Retrieving the hourly forecast from wunderground.com...')  
                 
     f = urllib2.urlopen('http://api.wunderground.com/api/%s/geolookup/hourly/q/pws:%s.json'%(wunderground_token, wunderground_station))
@@ -137,7 +188,7 @@ def getForecast(command, user_name):
     f.close()    
         
 #get weather from Wunderground
-def getWeather(command, user_name):  
+def getWeather(command, user):  
     logme('Retrieving the current weather conditions from wunderground.com...') 
     
     #match = re.search('^\\\\(weather)\s(hourly)', command)
@@ -165,16 +216,21 @@ def getWeather(command, user_name):
     send_message("\n") 
     f.close()
 
-def getHelp(command, user_name):
+def getHelp(command, user=None):
     logme('Processing the "help" command...')
-	
-    send_message(	user_name + ', here are some helpful tips:\n' + \
+    
+    #allow getHelp to be called by Itzamna
+    user_name = 'Fear not, mortals'
+    if user != None:
+        user_name = user['profile']['first_name']
+    send_message(   user_name + ', here are some helpful tips:\n' + \
                     '>`\\help` shows this message\n' + \
                     '>`\\where` shows where the telescope is pointing\n' + \
                     '>`\\weather` shows the current weather conditions\n' + \
-					'>`\\forecast` shows the hourly weather forecast\n' + \
-					'>`\\clearsky` shows the Clear Sky chart(s)\n' \
-					)
+                    '>`\\forecast` shows the hourly weather forecast\n' + \
+                    '>`\\clearsky` shows the Clear Sky chart(s)\n' \
+                    )
+    send_message('\n')
 
 def abort(msg):
     logme(msg)
@@ -247,40 +303,42 @@ def process_messages(msgs):
             if msg['type'] == 'message' and msg['channel'] == slack_channel:
                 dt = datetime.datetime.fromtimestamp(float(msg['ts'])) 
                 #which user sent this message?
-                user_name='Unknown'
-                for user in slack_users:
-                    if(user['id'] == msg['user']):
+                #user_name='Unknown'
+                user = None
+                for slack_user in slack_users:
+                    if(slack_user['id'] == msg['user']):
                         #print user
-                        user_name = user['profile']['first_name']
+                        user = slack_user
+                        #user_name = user['profile']['first_name']
                         break
                 if(dt > dt_last_message):
                     dt_last_message = dt
                     text = msg['text'].strip()
                     match = re.search('^\\\\', text)    
                     if match:
-                        parse_command(text, user_name, dt)
+                        parse_command(text, user, dt)
                     else:                          
-                        logme('User %s sent text (%s) on %s.'%(user_name, msg['text'],dt_last_message.strftime("%Y/%m/%d @ %H:%M:%S")))
+                        logme('User %s sent text (%s) on %s.'%(user['profile']['first_name'], msg['text'],dt_last_message.strftime("%Y/%m/%d @ %H:%M:%S")))
                     #is this a command, starts with \      
                 else:
-                    logme('Warning! Ignoring old/duplicate message from #%s ("%s" from %s).'%(slack_channel_name,msg['text'],user_name))    
+                    logme('Warning! Ignoring old/duplicate message from #%s ("%s" from %s).'%(slack_channel_name,msg['text'], user['profile']['first_name']))    
                 #send_message('You are the greatest, %s.'%user_name)       
 
-def parse_command(text, user_name, dt):
+def parse_command(text, user, dt):
     match = False
     for command in commands:
         #match the command first, then look for
         match = re.search(command[0], text)
         if match: #compare with list of known commands, spelling and capitalization count!
-            logme('%s sent command (%s) on %s.'%(user_name, text, dt.strftime("%Y/%m/%d @ %H:%M:%S")))
+            logme('%s sent command (%s) on %s.'%(user['profile']['first_name'], text, dt.strftime("%Y/%m/%d @ %H:%M:%S")))
             #call associated function
-            command[1](text, user_name)
+            command[1](text, user)
             #send_message('%s, the almighty Itzamna has received your command (%s).'%(user_name,text))
             break;
         #index += 1
     if not match: #did not recognize this command
-        logme('%s sent unrecognized command (%s) on %s.'%(user_name, text, dt.strftime("%Y/%m/%d @ %H:%M:%S")))
-        send_message('%s, the almighty Itzamna does not recognize your command (%s).'%(user_name,text))
+        logme('%s sent unrecognized command (%s) on %s.'%(user['profile']['first_name'], text, dt.strftime("%Y/%m/%d @ %H:%M:%S")))
+        send_message('%s, the almighty Itzamna does not recognize your command (%s).'%(user['profile']['first_name'],text))
   
 ###############################
 #CHANGE THESE VALUES AS NEEDED#
@@ -318,7 +376,9 @@ commands = [
 ['^\\\\(where)',getWhere],
 ['^\\\\(sun)',getSun],
 ['^\\\\(moon)',getMoon],
+['^\\\\(slit)',getSlit],
 ['^\\\\(test)', doTest],
+['^\\\\(find) ([a-zA-Z0-9\\s]+)', getObject],
     
 ]
 
@@ -363,7 +423,7 @@ while True:
                 slack_channel = channel['id']
         if slack_channel == None:
             abort('Error! Could not find #%s.'%slack_channel_name)
-		#send welcome message
+        #send welcome message
         doWelcome()
         logme('Listening for commands on #%s...'%slack_channel_name)
         #data loop  

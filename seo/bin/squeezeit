@@ -1,5 +1,11 @@
 #!/bin/bash
 
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+source $DIR/utils
+
+alert "Closing ('squeezing') observatory..."
+
 tin interrupt
 closedown
 tx lock clear
@@ -9,3 +15,5 @@ tx where
 tx where
 tx where
 tin resume
+
+alert "Observatory has been closed ('squoze')!"

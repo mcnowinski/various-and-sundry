@@ -1,5 +1,11 @@
 #!/bin/bash
 
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+source $DIR/utils
+
+alert "Opening ('cracking') observatory..."
+
 tin
 tx taux
 tx mets
@@ -9,3 +15,5 @@ tin interrupt
 openup nocloud
 keepopen maxtime=36000 slit
 tx track on
+
+alert "Observatory has been opened ('cracked')!"

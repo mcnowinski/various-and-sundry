@@ -40,8 +40,8 @@ function checkCCDTemp {
     else
       debug "CCD temperature is $CCD_TEMP2 degrees."
     fi
-  else
-    debug "CCD temperature is $CCD_TEMP degrees."
+#  else
+#    debug "CCD temperature is $CCD_TEMP degrees."
   fi
 }
 
