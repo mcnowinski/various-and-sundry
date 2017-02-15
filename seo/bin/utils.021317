@@ -90,36 +90,34 @@ function checkSlit {
   fi
 }
 
-MINIMUM_ALT=28
+MINIMUM_ALT=20
 #check to be sure telescope altitude is within limits
 function checkAlt {
   local ALT=`tx where | grep -o 'alt=[0-9\.]\+' | cut -c5-`
   if [ ${ALT%.*} -lt ${MINIMUM_ALT%.*} ]
   then
- 	alert "Telescope altitude ($ALT deg) too low (< $MINIMUM_ALT deg). Closing observatory..."
-	#closedown
+ 	alert "Altitude of telescope ($ALT) too low. Closing down observatory..."
+	closedown
 	#exit 1
-    squeezeit
-	#while true
-	#do
-	#	alert "Altitude of telescope ($ALT) too low. Observatory closed."
-	#	sleep 60
-	#done
+	while true
+	do
+		alert "Altitude of telescope ($ALT) too low. Observatory closed."
+		sleep 60
+	done
   fi
 }
 
-MAXIMUM_CLOUDS_IMAGE=30
-MAXIMUM_CLOUDS_SLIT=80
+MAXIMUM_CLOUDS_IMAGE=35
+MAXIMUM_CLOUDS_SLIT=70
 #check to be sure cloud cover is not too thick
 function checkClouds {
   local CLOUDS=`tx taux | grep -o 'cloud=[0-9\.\+\-]\+' | cut -c7-`
   local CLOUD_PCT=$(expr $CLOUDS*100 | bc)
   if [ ${CLOUD_PCT%.*} -gt ${MAXIMUM_CLOUDS_SLIT%.*} ]
   then
- 	alert "Too many clouds (${CLOUD_PCT%.*}%). Closing slit..."
-	#squeezeit
-	#exit 1
-    tx slit close
+ 	alert "Too many clouds (${CLOUD_PCT%.*}%). Closing observatory..."
+	squeezeit
+	exit 1
   fi
   if [ ${CLOUD_PCT%.*} -gt ${MAXIMUM_CLOUDS_IMAGE%.*} ]
   then
@@ -130,18 +128,15 @@ function checkClouds {
 	do
 		if [ ${CLOUD_PCT%.*} -gt ${MAXIMUM_CLOUDS_SLIT%.*} ]
 		then
-			alert "Too many clouds (${CLOUD_PCT%.*}%). Closing slit..."
-			#squeezeit
-			#exit 1
-            tx slit close
+			alert "Too many clouds (${CLOUD_PCT%.*}%). Closing observatory..."
+			squeezeit
+			exit 1
 		fi	
 		debug "Cloud cover is ${CLOUD_PCT%.*}%."
 		sleep 60
-		#checkSlit
-        checkAlt
+		checkSlit
 		CLOUDS=`tx taux | grep -o 'cloud=[0-9\.\+\-]\+' | cut -c7-`
 		CLOUD_PCT=$(expr $CLOUDS*100 | bc)		
 	done
-    tx slit open
   fi
 }

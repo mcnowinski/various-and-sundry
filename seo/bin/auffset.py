@@ -44,15 +44,15 @@ solve_field_path='/home/mcnowinski/astrometry/bin/solve-field'
 downsample=2
 scale_low=0.55
 scale_high=2.00
-radius=1.0
+radius=5.0 #up this to 5 deg, just in case scope is way off
 cpu_limit=30
 #offset limits (deg)
-max_ra_offset=5.0
-max_dec_offset=5.0
+max_ra_offset=10.0
+max_dec_offset=10.0
 min_ra_offset=0.05
 min_dec_offset=0.05
 #how many pointing iterations to allow?
-max_tries=5
+max_tries=20
 #image command parameters
 time=10
 bin=2
@@ -71,12 +71,31 @@ while((abs(ra_offset) > min_ra_offset or abs(dec_offset) > min_dec_offset) and i
     logme('Performing adjustment #%d...'%(iteration))
 
     #get pointing image
+    #ensure filter is clear!
+    #get current filter setting
+    output = subprocess.check_output('pfilter', shell=True) 
+    #match = re.search('([h\\-alpha|u\\-band||g\\-band|r\\-band|i\\-band|z\\-band|clear])', output)
+    match = re.search('([a-zA-Z0-1\\-]+)', output)
+    if match:
+        logme('Current filter is %s.'%match.group(1))
+        #set to clear (temporarily)
+        logme('Changing filter setting to clear (temporarily).')    
+        os.system('pfilter clear')
+    else:
+        logme('Error. Unrecognized filter (%s).'%output)
+    
     os.system('image time=%d bin=%d outfile=%s' % (time, bin, fits_fname));
+
+    #change filter back    
+    if match:
+        logme('Changing filter *back* to %s.'%match.group(1))
+        os.system('pfilter %s'%match.group(1))
+        
     if not os.path.isfile(fits_fname):
-        logme('Error. File (%s) not found.' % fits_fname)
+        logme('Error. File (%s) not found.' %fits_fname)
         log.close()
         sys.exit(1)
-
+ 
     #get FITS header, pull RA and DEC for cueing the plate solving
     if(ra_target == None or dec_target == None):
         header = getheader(fits_fname)
@@ -92,7 +111,12 @@ while((abs(ra_offset) > min_ra_offset or abs(dec_offset) > min_dec_offset) and i
             sys.exit(1)
             
     #plate solve this image, using RA/DEC from FITS header
-    output = subprocess.check_output(solve_field_path + ' --no-verify --overwrite --no-remove-lines --downsample %d --scale-units arcsecperpix --scale-low %f --scale-high %f --ra %s --dec %s --radius %f --cpulimit %d --no-plots '%(downsample,scale_low,scale_high,ra_target,dec_target,radius,cpu_limit)+fits_fname, shell=True)
+    #output = subprocess.check_output(solve_field_path + ' --no-verify --overwrite --no-remove-lines --downsample %d --scale-units arcsecperpix --scale-low %f --scale-high %f --ra %s --dec %s --radius %f --cpulimit %d --no-plots '%(downsample,scale_low,scale_high,ra_target,dec_target,radius,cpu_limit)+fits_fname, shell=True)
+    #output = subprocess.check_output(solve_field_path + ' --no-fits2fits --overwrite --downsample 2 --guess-scale --ra %s --dec %s --radius 1.0 --cpulimit 30 --no-plots '%(ra,dec)+'%s'%(new), shell=True)
+    #output = subprocess.check_output(solve_field_path + ' --no-verify --overwrite --no-remove-lines --downsample %d --guess-scale --ra %s --dec %s --radius %f --cpulimit %d --no-plots '%(downsample,ra_target,dec_target,radius,cpu_limit)+fits_fname, shell=True)
+    #let's go simpler after issues with gross telescope mis-pointing 021417
+    output = subprocess.check_output(solve_field_path + ' --no-verify --overwrite --no-remove-lines --downsample %d --cpulimit %d --no-plots '%(downsample,cpu_limit)+fits_fname, shell=True)
+    
     #output = subprocess.check_output(solve_field_path + ' --no-verify --overwrite --downsample %d --cpulimit %d --no-plots '%(downsample,cpu_limit)+fits_fname, shell=True)
     log.write(output)
 
@@ -120,7 +144,8 @@ while((abs(ra_offset) > min_ra_offset or abs(dec_offset) > min_dec_offset) and i
     dec_offset=float(dec_target)-float(DEC_image)
 
     if(abs(ra_offset) <= max_ra_offset and abs(dec_offset) <=max_dec_offset):
-        os.system('tx offset ra=%f dec=%f cos > /dev/null' % (ra_offset, dec_offset))
+        #os.system('tx offset ra=%f dec=%f cos > /dev/null' % (ra_offset, dec_offset))
+        os.system('tx offset ra=%f dec=%f > /dev/null' % (ra_offset, dec_offset))
         #print "Offset complete (tx offset ra=%f dec=%f)." % (ra_offset, dec_offset)
         logme("...complete (dRA=%f deg, dDEC=%f deg)."%(ra_offset, dec_offset))
     else:
@@ -130,6 +155,10 @@ while((abs(ra_offset) > min_ra_offset or abs(dec_offset) > min_dec_offset) and i
     #dms = coord.Angle(DEC_image, unit=u.degree).dms
     #print "center ra=%d:%d:%f dec=%d:%d:%f" % (hms.h, hms.m, hms.s, dms.d, dms.m, dms.s)
 
-logme('BAM! Your target has been pinpoint-ed!')
-log.close()
-sys.exit(0)
+if(iteration < max_tries):   
+    logme('BAM! Your target has been pinpoint-ed!')
+    log.close()
+    sys.exit(0)
+    
+logme('Error. Exceeded maximum number of adjustments (%d).'%max_tries)
+sys.exit(1)    

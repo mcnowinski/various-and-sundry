@@ -12,6 +12,7 @@ import subprocess
 import astropy.coordinates as coord
 from astropy.coordinates import SkyCoord
 import astropy.units as u
+import callhorizons
 
 #http://server3.sky-map.org/imgcut?survey=SDSS&img_id=all&angle=0.9375&ra=23.50142&de=47.253&width=400&height=400&projection=tan&interpolation=bicubic&jpeg_quality=0.8&output_type=jpeg
 #http://server3.wikisky.org/map?custom=1&language=EN&type=PART&w=500&h=500&angle=5.0&ra=9.9166666666666666666666666666667&de=69.066666666666666666666666666667&rotation=0.0&mag=10&max_stars=100000&zoom=10&borders=1&border_color=400000&show_grid=0&grid_color=404040&grid_color_zero=808080&grid_lines_width=1.0&grid_ra_step=1.0&grid_de_step=15.0&show_const_lines=0&constellation_lines_color=006000&constellation_lines_width=1.0&show_const_names=&constellation_names_color=006000&const_name_font_type=PLAIN&const_name_font_name=SanSerif&const_name_font_size=15&show_const_boundaries=&constellation_boundaries_color=000060&constellation_boundaries_width=1.0&background_color=000000&output=PNG
@@ -55,15 +56,46 @@ def getObject(command, user):
     else:
         logme('Error. Unexpected command format (%s).'%command)
         return        
-    logme('Search for object (%s)...'%object_name)
+    logme('Searching for object (%s)...'%object_name)
+    #search celestial objects using SkyCoord
+    found_celestial_object = False
     try:
-        object = SkyCoord.from_name(object_name)
+        celestial_object = SkyCoord.from_name(object_name)
+        found_celestial_object = True
     except:
+        #logme('Error. Could not find object (%s).'%object_name)
+        #send_message('Sorry. Itzamna knows all but *still* could not find "%s".'%object_name)
+        #return
+        pass
+    #search solar system objects using JPL HORIZONS
+    found_solar_system_object = False
+    start = datetime.datetime.utcnow()
+    end = start+datetime.timedelta(days=1)
+    #logme('start=%s, end=%s'%(start.strftime("%Y/%m/%d %H:%M"), end.strftime("%Y/%m/%d %H:%M")))
+    try:
+        #logme('JPL HORIZONS search...')
+        solar_system_object=callhorizons.query(object_name)
+        solar_system_object.set_epochrange(start.strftime("%Y/%m/%d %H:%M"), end.strftime("%Y/%m/%d %H:%M"), '60m')
+        solar_system_object.get_ephemerides('G52')
+        #print solar_system_object['RA']
+        #solar_system_object.get_elements()
+        found_solar_system_object = True
+    except:
+        #logme('Error. Could not find object (%s).'%object_name)
+        #send_message('Sorry. Itzamna knows all but *still* could not find "%s".'%object_name)
+        #return
+        pass 
+    if found_celestial_object == True:
+        logme('Celestial object (%s) found at RA=%s, DEC=%s.'%(object_name, celestial_object.ra, celestial_object.dec))
+        send_message('Object (%s) found at RA=%s, DEC=%s.'%(object_name, celestial_object.ra, celestial_object.dec))
+    if found_solar_system_object == True:
+        #print(solar_system_object['RA'][0])
+        #logme(solar_system_object['DEC'][12])
+        #send_message(solar_system_object.query)
+        send_message('Object (%s) found at RA=%s, DEC=%s.'%(object_name, solar_system_object['RA'][12], solar_system_object['DEC'][12]))
+    if found_celestial_object == False and found_solar_system_object == False:
         logme('Error. Could not find object (%s).'%object_name)
-        send_message('Sorry. Itzamna knows all but *still* could not find "%s".'%object_name)
-        return
-    logme('Object (%s) found at RA=%s, DEC=%s.'%(object_name, object.ra, object.dec))
-    send_message('Object (%s) found at RA=%s, DEC=%s.'%(object_name, object.ra, object.dec))
+        send_message('Sorry. Itzamna knows all but *still* could not find "%s".'%object_name)    
     
 def isLocked():
     logme('Checking to see if the telescope is locked...')

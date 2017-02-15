@@ -1,0 +1,74 @@
+#!/bin/bash
+
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+source $DIR/utils
+
+#command for plate solving, auto-offset script?
+AUFFSET="python $DIR/auffset.py"
+
+if [ $# -ne 6 ]; then
+	echo "This routine takes a sequence of images."
+    echo "Usage: iloop <number of images> <exposure time (seconds)> <binning, e.g., 2> <filter, e.g. clear> <ra (HH:MM:SS)> <dec (DD:MM:SS)>"
+    exit 1
+fi
+
+#input params
+NUM_IMAGES=$1
+EXPOSURE_SEC=$2
+BINNING=$3
+FILTER=$4
+RA=$5
+DEC=$6
+COUNT=0
+DO_PINPOINT=1
+
+#get the target images
+alert "Taking $NUM_IMAGES image(s) (bin=$BINNING, time=$EXPOSURE_SEC)..."
+
+checkCCDTemp
+checkClouds
+checkAlt
+
+crackit
+
+checkSlit
+
+pfilter $FILTER
+#tx point ra=$RA dec=$DEC
+pinpoint $RA $DEC
+tx track on
+
+for (( k=1; k<=$NUM_IMAGES; k++ ))
+do
+  #report position
+  tx where
+  #get scope info
+  tx taux
+  getImage $EXPOSURE_SEC $BINNING "" `date -u +"%Y%m%d.%H%M%S%3N"`.`printf "%03d" $COUNT`.fits
+  if [ $SUCCESS -eq 1 ]
+  then
+	COUNT=$((COUNT+1))
+  fi
+  checkCCDTemp
+  checkAlt
+  checkClouds
+  checkSlit
+  #ensure tracking is on
+  if [ $DO_PINPOINT -eq 1 ]
+  then
+	  $AUFFSET $RA $DEC
+	  if [ $? -eq 1 ]
+	  then
+		alert "Error. Pinpoint command failed. Using mechanical tracking only."
+		DO_PINPOINT=0
+	  fi
+  else
+	  debug "Pinpoint command failed. Using mechanical tracking only."  
+  fi
+  #ensure dome is centered on telescope pointing location
+  tx dome center > /dev/null
+  tx track on > /dev/null
+done
+
+alert "Image sequence complete. Obtained $COUNT image(s)."
