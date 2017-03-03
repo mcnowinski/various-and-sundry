@@ -322,7 +322,7 @@ for designation in asteroids:
             #plt.show()    
         CG_cdf_max = 0.0
         CG_cdf_max_taxclass = ''
-        log.write('\t%s\t%s\n'%('tax', '%score'))
+        log.write('\t%s\t%s\ttype\n'%('tax', '%score'))
         for taxclass in CG_cdf:
             if CG_cdf[taxclass] > CG_cdf_max:
                 CG_cdf_max_taxclass = taxclass
@@ -336,7 +336,7 @@ for designation in asteroids:
             except:
                 log.write('ERROR')
         if CG_cdf_sum > 0 and CG_cdf_max/CG_cdf_sum >= 0.6:
-            log_tax.write('%s\t%s\t%s\t%f\n'%(designation, observation['moID'], CG_cdf_max_taxclass, CG_cdf_max))
+            log_tax.write('%s\t%s\t%s\t%f\tsingle\n'%(designation, observation['moID'], CG_cdf_max_taxclass, CG_cdf_max))
             log.write('\t%s\t%s\n'%('tax', 'score'))            
             log.write('\t%s\t%f\n'%(CG_cdf_max_taxclass, CG_cdf_max)) 
         else:
@@ -351,7 +351,7 @@ for designation in asteroids:
                     comboscoresum += CG_cdf[taxclass]
             if combocount > 0:
                 comboscore = comboscoresum/combocount
-            log_tax.write('%s\t%s\t%s\t%f\n'%(designation, observation['moID'], comboclass, comboscore)) 
+            log_tax.write('%s\t%s\t%s\t%f\tcombo\n'%(designation, observation['moID'], comboclass, comboscore)) 
             log.write('\tcombo\n')    
             log.write('\t%s\t%s\n'%('tax', 'score'))            
             log.write('\t%s\t%f\n'%(comboclass, comboscore))
