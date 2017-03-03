@@ -145,7 +145,7 @@ log_tax=open('moc4.tax.txt', 'w')
 observation={}
 while nRows >= nRowsMax:
     try:
-        data = pd.read_fwf(path, colspecs=col_specification, skiprows=skipRows, nrows=nRowsMax)
+        data = pd.read_fwf(path, colspecs=col_specification, skiprows=skipRows, nrows=nRowsMax, header=None)
     except:
         break
     nRows = data.shape[0]
@@ -242,14 +242,17 @@ while nRows >= nRowsMax:
             #print asteroids[designation]
     skipRows += nRows
 
-print 'Read %d rows.'%(skipRows+1)
-print 'Found %d asteroids.'%asteroid_count
+print 'Read %d row(s).'%(skipRows)
+print 'Found %d asteroid(s).'%asteroid_count
 
 for designation in asteroids:
     log.write('%s\n'%designation)
     for observation in asteroids[designation]['observations']:
+        log.write('\t%s\t%s\t\t%s\t\t%s\t\t%s\t\t%s\t\t%s\t\t%s\t\t%s\t\t%s\t\t%s\n'%('moID', 'LRug', 'LRugErr', 'LRgg', 'LRggErr', 'LRrg', 'LRrgErr', 'LRig', 'LRigErr', 'LRzg', 'LRzgErr'))
         log.write('\t%s\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\n'%(observation['moID'], observation['LRug'], observation['LRugErr'], observation['LRgg'], observation['LRggErr'], observation['LRrg'], observation['LRrgErr'], observation['LRig'], observation['LRigErr'], observation['LRzg'], observation['LRzgErr']))
+        log.write('\t%s\t\t%s\t\t%s\t\t%s\n'%('CGgu', 'CGrg', 'CGir', 'CGzi'))
         log.write('\t%f\t%f\t%f\t%f\n'%(observation['CGgu'], observation['CGrg'], observation['CGir'], observation['CGzi']))
+        log.write('\t%s\t\t%s\t\t%s\t\t%s\n'%('CGguErr', 'CGrgErr', 'CGirErr', 'CGziErr'))
         log.write('\t%f\t%f\t%f\t%f\n'%(observation['CGguErr'], observation['CGrgErr'], observation['CGirErr'], observation['CGziErr']))
         #for this observation, loop through the limits for each taxonomic type
         CG_cdf={}
@@ -312,12 +315,14 @@ for designation in asteroids:
             #print stats.norm.cdf(CG_limits[taxclass]['CGziU'], loc=observation['CGzi'], scale=observation['CGziErr']), stats.norm.cdf(CG_limits[taxclass]['CGziL'], loc=observation['CGzi'], scale=observation['CGziErr'])                
             CG_cdf[taxclass] = CGgu_cdf * CGrg_cdf * CGir_cdf * CGzi_cdf
             CG_cdf_sum += CG_cdf[taxclass]
+            log.write('\t%s\t%s\t\t%s\t\t%s\t\t%s\t\t%s\n'%('tax', 'score', 'scoregu', 'scorerg', 'scoreir', 'scorezi'))
             log.write('\t%s\t%f\t%f\t%f\t%f\t%f\n'%(taxclass, CG_cdf[taxclass], CGgu_cdf, CGrg_cdf, CGir_cdf, CGzi_cdf))
             plt.text(0, 0, '%s\t%s'%(observation['moID'],taxclass))
             #uncomment to show plots!
             #plt.show()    
         CG_cdf_max = 0.0
         CG_cdf_max_taxclass = ''
+        log.write('\t%s\t%s\n'%('tax', '%score'))
         for taxclass in CG_cdf:
             if CG_cdf[taxclass] > CG_cdf_max:
                 CG_cdf_max_taxclass = taxclass
@@ -325,13 +330,15 @@ for designation in asteroids:
             #print taxclass, CG_cdf[taxclass]/CG_cdf_sum*100
             try:
                 if CG_cdf_sum > 0:
-                    log.write('\t%s\t%f%%\n'%(taxclass, (CG_cdf[taxclass]/CG_cdf_sum*100)))
+                    log.write('\t%s\t%f\n'%(taxclass, (CG_cdf[taxclass]/CG_cdf_sum*100)))
                 else:
-                    log.write('\t%s\t%f%%\n'%(taxclass, 0.0))                    
+                    log.write('\t%s\t%f\n'%(taxclass, 0.0))                    
             except:
                 log.write('ERROR')
         if CG_cdf_sum > 0 and CG_cdf_max/CG_cdf_sum >= 0.6:
             log_tax.write('%s\t%s\t%s\t%f\n'%(designation, observation['moID'], CG_cdf_max_taxclass, CG_cdf_max))
+            log.write('\t%s\t%s\n'%('tax', 'score'))            
+            log.write('\t%s\t%f\n'%(CG_cdf_max_taxclass, CG_cdf_max)) 
         else:
             comboclass = ''
             combocount = 0
@@ -344,8 +351,11 @@ for designation in asteroids:
                     comboscoresum += CG_cdf[taxclass]
             if combocount > 0:
                 comboscore = comboscoresum/combocount
-            log_tax.write('%s\t%s\t%s\t%f\n'%(designation, observation['moID'], comboclass, comboscore))                    
-            log.write('\t%s\t%s\t%s\t%f\n'%(designation, observation['moID'], comboclass, comboscore)) 
+            log_tax.write('%s\t%s\t%s\t%f\n'%(designation, observation['moID'], comboclass, comboscore)) 
+            log.write('\tcombo\n')    
+            log.write('\t%s\t%s\n'%('tax', 'score'))            
+            log.write('\t%s\t%f\n'%(comboclass, comboscore))
+        log.write('\t***************************************\n')
 log.close()
 log_tax.close()
 
