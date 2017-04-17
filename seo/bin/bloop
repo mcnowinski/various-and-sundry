@@ -26,7 +26,7 @@ alert "Taking $NUM_BIAS bias frames (bin=$BINNING, time=$EXPOSURE_SEC)..."
 checkCCDTemp
 for (( i=1; i<=$NUM_BIAS; i++ ))
 do
-  getImage $EXPOSURE_SEC $BINNING dark `date -u +"%Y%m%d.%H%M%S%3N"`.`printf "%03d" $COUNT`.bias.$BINNING.$EXPOSURE_SEC.fits
+  getImage $EXPOSURE_SEC $BINNING `date -u +"%Y%m%d.%H%M%S%3N"`.`printf "%03d" $COUNT`.bias.$BINNING.$EXPOSURE_SEC.fits dark 0
   if [ $SUCCESS -eq 1 ]
   then
 	COUNT=$((COUNT+1))

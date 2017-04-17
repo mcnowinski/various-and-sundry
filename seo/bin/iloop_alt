@@ -5,7 +5,7 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 source $DIR/utils
 
 #command for plate solving, auto-offset script?
-PINPOINT="/home/mcnowinski/anaconda2/bin/python $DIR/pinpoint.py"
+AUFFSET="python $DIR/auffset.py"
 
 if [ $# -ne 6 ]; then
 	echo "This routine takes a sequence of images."
@@ -31,6 +31,8 @@ alert "Taking $NUM_IMAGES image(s) (bin=$BINNING, time=$EXPOSURE_SEC)..."
 #checkAlt
 #checkClouds
 
+checkTargetAlt $RA $DEC
+
 alert "Pointing telescope to target (RA/DEC=$RA/$DEC)..."
 tx point ra=$RA dec=$DEC
 #pinpoint $RA $DEC
@@ -42,11 +44,12 @@ do
   checkSlit
   checkAlt
   checkClouds
+  checkTargetAlt $RA $DEC
   #ensure tracking is on
   debug "Refining telescope position..."
   if [ $DO_PINPOINT -eq 1 ]
   then
-	  $PINPOINT $RA $DEC
+	  $AUFFSET $RA $DEC
 	  if [ $? -eq 1 ]
 	  then
 		debug "Error. Pinpoint command failed."

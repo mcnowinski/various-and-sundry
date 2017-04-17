@@ -30,11 +30,17 @@ set filter_nums = (7 7 5 3 4 2 5 3 6 4 2 6)
 #set counts = (5 5 5 5 5 5 5 5 5)
 set counts = (5 5 5 5 5 5 5 5 10 5 5 10)
 
+set sunalt=-1
+
+tx lock user=$observer email=mcnowinski@gmail.com phone=7032869140 comment=fatflats 
+
 set msg="Taking *fat* dusk flat frames..."
 set MESSAGE=`date -u +"%m-%d-%Y %H:%M:%S "`
 set MESSAGE="$MESSAGE $msg"
 slackalert "$MESSAGE"
 slackdebug "$MESSAGE"
+
+sunset $sunalt
 
 #prepare the observatory for observations
 openup logid=$logid
@@ -167,10 +173,14 @@ set MESSAGE="$MESSAGE $msg"
 slackalert "$MESSAGE"
 slackdebug "$MESSAGE"
 
+tx lock clear
+squeezeit
+
 exit 0
 
 # Updates the log file for various failures
 die:
+tx lock clear
 if ($logid) then
 	set query="UPDATE Log SET Message='$msg' WHERE LogID=$logid"
 	echo $query | query
@@ -182,4 +192,5 @@ else
 	slackalert "$MESSAGE"
 	slackdebug "$MESSAGE"
 endif
+squeezeit
 exit 1

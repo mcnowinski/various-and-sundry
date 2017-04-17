@@ -1,0 +1,60 @@
+#!/bin/bash
+
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+source $DIR/utils
+
+IMAGEPATH=/home/mcnowinski/images/`date -u -d "+1 days" +"%Y%m%d"`
+NUMBIAS=100
+NUMDARK=10
+EXPDARK=120
+
+FLATPATH=$IMAGEPATH/flat
+DARKPATH=$IMAGEPATH/dark
+BIASPATH=$IMAGEPATH/bias
+
+#create date-stamped image folder
+TEMPPATH=$IMAGEPATH
+if [ ! -d "$TEMPPATH" ]; then
+  mkdir $TEMPPATH
+  echo "Directory ($TEMPPATH) created."
+else
+  echo "Directory ($TEMPPATH) already exists."
+fi
+
+#create flat cal folder
+TEMPPATH=$FLATPATH
+if [ ! -d "$TEMPPATH" ]; then
+  mkdir $TEMPPATH
+  echo "Directory ($TEMPPATH) created."
+else
+  echo "Directory ($TEMPPATH) already exists."
+fi
+
+#create dark cal folder
+TEMPPATH=$DARKPATH
+if [ ! -d "$TEMPPATH" ]; then
+  mkdir $TEMPPATH
+  echo "Directory ($TEMPPATH) created."
+else
+  echo "Directory ($TEMPPATH) already exists."
+fi
+
+#create bias cal folder
+TEMPPATH=$BIASPATH
+if [ ! -d "$TEMPPATH" ]; then
+  mkdir $TEMPPATH
+  echo "Directory ($TEMPPATH) created."
+else
+  echo "Directory ($TEMPPATH) already exists."
+fi
+
+#create bias frames
+cd $BIASPATH
+bloop $NUMBIAS 1
+bloop $NUMBIAS 2
+
+#create dark frames
+cd $DARKPATH
+dloop $NUMDARK $EXPDARK 1
+dloop $NUMDARK $EXPDARK 2

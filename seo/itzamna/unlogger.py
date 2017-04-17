@@ -1,8 +1,11 @@
 import os
 import glob
 import datetime
+import pytz
 import re
 from collections import defaultdict
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.dates as dates
 from matplotlib.dates import date2num
@@ -57,7 +60,8 @@ def calcPointing():
     plt.grid(True)
     plt.plot(ra_rad, dec_rad, 'or', markersize=3)
     plt.subplots_adjust(top=0.95,bottom=0.0)
-    plt.show()
+    #plt.show()
+    plt.savefig('pointing.png', bbox_inches='tight')
     
 def calcCCD():
     exposure_sum = exposure_light_sum = exposure_dark_sum = 0
@@ -107,7 +111,7 @@ def calcUsage():
             elif dt > dtLast:
                 dtLast = dt
         #print user[0], dtLast.strftime("%m-%d-%Y"), len(uniqueDays)
-        tabledata.append([user[0], len(uniqueDays), dtLast.strftime("%m-%d-%Y")])        
+        tabledata.append([user[0], '%d'%len(uniqueDays), dtLast.strftime("%m-%d-%Y")])        
     table = AsciiTable(tabledata) 
     logme(table.table)
 
@@ -116,9 +120,9 @@ def calcWeather():
     cloud_average = 0
     uniqueDays = []
     for wx in weather:
-        cloud = wx[1]
-        rain = wx[2]
         dt = wx[0]
+        cloud = wx[1]
+        rain = int(wx[2])
         #calc average cloud cover
         cloud_average += float(cloud)/len(weather)
         #calculate number of days with rain
@@ -136,7 +140,7 @@ def calcWeather():
                     uniqueDays.append(dt.strftime("%m-%d-%Y"))
 
     logme('Average cloud cover was %d%%.'%(int(cloud_average)))
-    logme('Number of days with rain was %d.'%(len(uniqueDays)))
+    logme('Number of days with rain was %d (%d%%).'%(len(uniqueDays), int(float(len(uniqueDays))/(dtEnd-dtStart).days*100)))
     
     #plot cloud cover
     x = [date2num(date) for (date, cloud, rain) in weather]
@@ -154,13 +158,14 @@ def calcWeather():
             )
     x_major_lct = dates.AutoDateLocator(minticks=2, maxticks=10, interval_multiples=True)
     #x_minor_lct = dates.HourLocator(byhour = range(0,25,1))
-    x_fmt = dates.AutoDateFormatter(x_major_lct)
+    x_fmt = dates.AutoDateFormatter(x_major_lct, defaultfmt='%m-%d')
     graph.xaxis.set_major_locator(x_major_lct)
     #graph.xaxis.set_minor_locator(x_minor_lct)
     graph.xaxis.set_major_formatter(x_fmt)
     plt.xlabel('Day')
     plt.ylabel('Cloud Cover (%)')
     #plt.show()
+    plt.savefig('cloud.png', bbox_inches='tight')
 
 def doWhere(msg, dt):
     match = re.search(re_doWhere, msg)
@@ -197,7 +202,8 @@ def doPoint(msg, dt):
             sc = SkyCoord(raDec, unit=(u.hourangle, u.deg))
             points.append(raDec)
         except:
-            logme('Error. Invalid RA or DEC value (%s).'%raDec)       
+            #logme('Error. Invalid RA or DEC value (%s).'%raDec)
+            pass
 
 def doSlit(msg, dt):
     match = re.search(re_doSlit, msg)
@@ -281,7 +287,7 @@ def logme( str ):
    return 
 
 #path to log files
-input_path = './'
+input_path = '/data/'
 #mask for log files
 input_mask = 'tserver.*'
 #log file name
@@ -290,23 +296,35 @@ log_fname = 'log.unlogger.txt'
 log=open(log_fname, 'w')
 
 #grab start and end dates if they are provided
-dtFilterStart = dtFilterEnd = None
-filterDates = False
+#otherwise use look at 7 days
+dtEnd = datetime.datetime.utcnow().replace(hour=0,minute=0,second=0)
+dtStart = (dtEnd-datetime.timedelta(days=7)).replace(hour=23,minute=59,second=59)
+#dtFilterStart = dtFilterEnd = None
+#filterDates = False
 if(len(os.sys.argv) >= 3):
-    dtStart = parser.parse(os.sys.argv[1])
-    dtEnd = parser.parse(os.sys.argv[2])
-    filterDates = True
-
+    dtStart = parser.parse(os.sys.argv[1]).replace(hour=0,minute=0,second=0)
+    dtEnd = parser.parse(os.sys.argv[2]).replace(hour=23,minute=59,second=59)
+    #filterDates = True   
+   
 log_files=glob.glob(input_path+input_mask)
 
-dtStart = dtFilterStart
-dtEnd = dtFilterEnd
+#dtStart = dtFilterStart
+#dtEnd = dtFilterEnd
 for log_file in log_files:
+    #skip files that are obviously earlier than the date range we are interested in
+    #tserver.2017-03-06T19:59:49Z
+    match = re.search('([0-9]{4}\\-[0-9]{2}\\-[0-9]{2}T[0-9]{2}\\:[0-9]{2}\\:[0-9]{2}Z)', log_file) 
+    if match:
+        dt = parser.parse(match.group(1))
+        if dt < pytz.utc.localize(dtStart): #this log file is before our time
+            continue #go to next file
+    #open file and read contents 
+    #logme('Processing %s...'%log_file)    
     try:
         lf=open(log_file, 'r')
     except:
-        logme('Error. Failed to open log file (%s).'%log_file)
-        continue
+        #logme('Error. Failed to open log file (%s).'%log_file)
+        continue      
     lines=lf.readlines()
     
     for line in lines:
@@ -317,18 +335,19 @@ for log_file in log_files:
         if match:
             #logme(match.group(1))
             dt = parser.parse(match.group(1))
+            #print dt.strftime("%Y-%m-%d %H:%M:%S")
             #skip dates that have been filtered
-            if filterDates == True:
-                if dt > dtFilterEnd or dt < dtFilterStart:
-                    continue
-            else: #track start and end dates
-                if dtStart == None:
-                    dtStart = dtEnd = dt #init start and end
-                else:
-                    if dt < dtStart:
-                        dtStart = dt
-                    elif dt > dtEnd:
-                        dtEnd = dt
+            #if filterDates == True:
+            if dt > pytz.utc.localize(dtEnd) or dt < pytz.utc.localize(dtStart):
+                continue
+            #else: #track start and end dates
+            #    if dtStart == None:
+            #        dtStart = dtEnd = dt #init start and end
+            #    else:
+            #        if dt < dtStart:
+            #            dtStart = dt
+            #        elif dt > dtEnd:
+            #            dtEnd = dt
             msg = line[len(match.group(1)):len(line)].strip()
             #logme('%s\t%s'%(dt.strftime("%Y-%m-%d %H:%M:%S"),msg))
             #now let's parse the msg!

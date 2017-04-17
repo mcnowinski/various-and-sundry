@@ -7,8 +7,6 @@ import sys
 from decimal import Decimal
 import datetime
 import getpass
-##gain access to local astropy module
-#sys.path.append('/home/mcnowinski/astropy/lib/python2.7/site-packages/astropy-1.2.1-py2.7-linux-x86_64.egg')
 from astropy.io import fits
 from astropy import wcs
 from astropy.io.fits import getheader
@@ -17,13 +15,12 @@ import astropy.units as u
 
 def logme( str ):
    log.write(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S: ") + str + "\n")
-   #print >> sys.stderr, str
    print str
    return
 
 ##check command line parameters
 #if len(sys.argv) > 3:
-#    print 'usage: auffset <RA true (HH:MM:SS.SS, optional)> <DEC true (DD:MM:SS.SS, optional)>'
+#    print 'usage: pinpoint <RA true (HH:MM:SS.SS)> <DEC true (DD:MM:SS.SS)>'
 #    sys.exit(1)
 
 #get target ra and dec from command line, if available
@@ -34,21 +31,29 @@ if len(sys.argv) >= 3:
     ra_target = coord.Angle(sys.argv[1], unit=u.hour).degree
     dec_target = coord.Angle(sys.argv[2], unit=u.deg).degree
     
+image_parms = ''
+if len(sys.argv) >= 4:
+    #get any parameters passed for image command, e.g. notel
+    image_parms = sys.argv[3]
+ 
+#print len(sys.argv)
+ 
 #MODIFY THESE FIELDS AS NEEDED!
-base_path='/tmp/'+datetime.datetime.now().strftime("%Y%m%d.%H%M%S%f.")
+base_path='/tmp/'+datetime.datetime.now().strftime("%Y%m%d.%H%M%S%f.pinpoint.")
 #log file name
-log_fname = '/tmp/'+getpass.getuser()+'.auffset.log'
+log_fname = '/tmp/'+getpass.getuser()+'.pinpoint.log'
 #path to astrometry.net solve_field executable
 solve_field_path='/home/mcnowinski/astrometry/bin/solve-field'
 #astrometry parameters
 downsample=2
+#bin=1, 0.75 arsec/pixel
 scale_low=0.55
 scale_high=2.00
-radius=10.0 #up this to 5 deg, just in case scope is way off
+radius=30.0 #up this to 30 deg, just in case scope is *way* off
 cpu_limit=30
 #offset limits (deg)
-max_ra_offset=10.0
-max_dec_offset=10.0
+max_ra_offset=30.0
+max_dec_offset=30.0
 min_ra_offset=0.05
 min_dec_offset=0.05
 #how many pointing iterations to allow?
@@ -58,9 +63,7 @@ time=10
 bin=2
 fits_fname=base_path+'pointing.fits'
 
-log=open(log_fname, 'a+')	
-
-#fits_fname = sys.argv[1]   
+log=open(log_fname, 'a+')	 
 
 ra_offset = 5.0
 dec_offset = 5.0
@@ -84,7 +87,7 @@ while((abs(ra_offset) > min_ra_offset or abs(dec_offset) > min_dec_offset) and i
     else:
         logme('Error. Unrecognized filter (%s).'%output)
     
-    os.system('image time=%d bin=%d outfile=%s' % (time, bin, fits_fname));
+    os.system('image time=%d bin=%d outfile=%s %s' % (time, bin, fits_fname, image_parms));
 
     #change filter back    
     if match:
@@ -148,14 +151,10 @@ while((abs(ra_offset) > min_ra_offset or abs(dec_offset) > min_dec_offset) and i
     if(abs(ra_offset) <= max_ra_offset and abs(dec_offset) <=max_dec_offset):
         #os.system('tx offset ra=%f dec=%f cos > /dev/null' % (ra_offset, dec_offset))
         os.system('tx offset ra=%f dec=%f > /dev/null' % (ra_offset, dec_offset))
-        #print "Offset complete (tx offset ra=%f dec=%f)." % (ra_offset, dec_offset)
         logme("...complete (dRA=%f deg, dDEC=%f deg)."%(ra_offset, dec_offset))
     else:
         logme("Error. Calculated offsets too large (tx offset ra=%f dec=%f)! Pinpoint aborted." % (ra_offset, dec_offset))   
         sys.exit(1)
-    #hms = coord.Angle(RA_image, unit=u.degree).hms
-    #dms = coord.Angle(DEC_image, unit=u.degree).dms
-    #print "center ra=%d:%d:%f dec=%d:%d:%f" % (hms.h, hms.m, hms.s, dms.d, dms.m, dms.s)
 
 if(iteration < max_tries):   
     logme('BAM! Your target has been pinpoint-ed!')

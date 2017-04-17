@@ -3,7 +3,7 @@
 function alert {
     local MESSAGE="`date -u +"%m-%d-%Y %H:%M:%S"` $1"
     slackalert "$MESSAGE"
-    echo $MESSAGE
+    #echo $MESSAGE
     debug "$1"
 }
 
@@ -20,7 +20,7 @@ function preview {
 function debug {
     local MESSAGE="`date -u +"%m-%d-%Y %H:%M:%S"` $1"
     slackdebug "$MESSAGE"
-    #echo $MESSAGE
+    echo $MESSAGE
 }
 
 function checkCCDTemp {
@@ -47,17 +47,21 @@ function checkCCDTemp {
 
 #take image
 SUCCESS=0
-#parameters are $1=time, $2=binning, $3="dark" or "", $4=outfile
+#parameters are $1=time, $2=binning, $3=outfile, $4=flags, e.g., "notel" or "dark", $5=preview (optional, 0=OFF, 1=ON; default is 1)
 function getImage {
-    SUCCESS=1
-    image time=$1 bin=$2 $3 outfile=$4
+    SUCCESS=1 #assume success!
+    PREVIEW=${5:-1} #preview is ON by default
+    #echo image time=$1 bin=$2 outfile=$3 $4
+    image time=$1 bin=$2 outfile=$3 $4
     if [ $? -eq 0 ]
     then
-        debug "Got image ($4)."
-        preview "$4" "$4"
-        #echo "Got image ($4)." > /dev/null
+        debug "Got image ($3)."
+        if [ $PREVIEW -eq 1 ]
+        then
+            preview "$3" "$3"
+        fi
     else
-        alert "Error. Image command failed ($4)."
+        alert "Error. Image command failed ($3)."
         SUCCESS=0
     fi
 }
@@ -66,7 +70,9 @@ NUM_ALERTS=50
 SNOOZE_TIME_S=10
 #is slit open? if not, exit
 function checkSlit {
-  if [ -n "`tx slit | grep "slit=open"`" ]
+  #if [ -n "`tx slit | grep "slit=open"`" ]
+  tx slit | grep "slit=open"
+  if [ $? == 0 ]
   then
   	echo "Slit is open." > /dev/null
   else
@@ -90,7 +96,7 @@ function checkSlit {
   fi
 }
 
-MINIMUM_ALT=28
+MINIMUM_ALT=25
 #check to be sure telescope altitude is within limits
 function checkAlt {
   local ALT=`tx where | grep -o 'alt=[0-9\.]\+' | cut -c5-`
@@ -105,6 +111,25 @@ function checkAlt {
 	#	alert "Altitude of telescope ($ALT) too low. Observatory closed."
 	#	sleep 60
 	#done
+  fi
+}
+
+MINIMUM_ALT_TARGET=29
+#check to be sure the the target is within limits
+#$1 is RA, $2 is DEC
+function checkAltTarget {
+  local ALT=`echo $1 $2 2000 | altaz | grep -o 'alt=[0-9+\.\-]\+' | cut -c5-`
+  if [ ${ALT%.*} -lt ${MINIMUM_ALT_TARGET%.*} ]
+  then
+ 	alert "Target ($1 $2) altitude too low ($ALT < $MINIMUM_ALT_TARGET deg). Pausing image sequence..."
+	while [ ${ALT%.*} -lt ${MINIMUM_ALT_TARGET%.*} ]
+	do
+		debug "Target altitude is $ALT deg."
+		sleep 60
+		#checkSlit
+        checkAlt
+		ALT=`echo $1 $2 2000 | altaz | grep -o 'alt=[0-9+\.\-]\+' | cut -c5-`		
+	done
   fi
 }
 

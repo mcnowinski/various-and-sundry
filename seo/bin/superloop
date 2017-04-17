@@ -54,7 +54,7 @@ do
   #get image for each specified filter
   for filter in "${FILTERS[@]}"; do
     pfilter $filter
-    getImage $EXPOSURE_SEC $BINNING "" `date -u +"%Y%m%d.%H%M%S%3N"`.`printf "%03d" $COUNT`.$filter.fits 
+    getImage $EXPOSURE_SEC $BINNING `date -u +"%Y%m%d.%H%M%S%3N"`.`printf "%03d" $COUNT`.$filter.fits
   done  
   if [ $SUCCESS -eq 1 ]
   then
@@ -67,14 +67,16 @@ do
   #ensure tracking is on
   if [ $DO_PINPOINT -eq 1 ]
   then
-	  $AUFFSET $RA $DEC
+	  $PINPOINT $RA $DEC
 	  if [ $? -eq 1 ]
 	  then
-		alert "Error. Pinpoint command failed. Using mechanical tracking only."
-		DO_PINPOINT=0
+		debug "Error. Pinpoint command failed."
+		#DO_PINPOINT=0
+      else
+        debug "Telescope PIN-pointed to RA/DEC=$RA/$DEC!"	
 	  fi
   else
-	  debug "Pinpoint command failed. Using mechanical tracking only."  
+	  debug "Pinpoint command failed."  
   fi
   #ensure dome is centered on telescope pointing location
   tx dome center > /dev/null

@@ -1,5 +1,9 @@
 #!/bin/bash
 
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+source $DIR/utils
+
 #check parameters
 if [ $# -ne 1 ]; then
     echo "This routine loops until the sun has set."
@@ -8,19 +12,19 @@ if [ $# -ne 1 ]; then
 fi
 
 MAX_SUN_ALT=$1
-
 function sunIsUp {
   local SUN_ALT=`sun | grep -o 'alt=[0-9\.\-]\+' | cut -c5-`
   if [ ${SUN_ALT%.*} -gt ${MAX_SUN_ALT%.*} ]
   then
-    echo "Sun is UP. Altitude is $SUN_ALT deg."
+    debug "Sun is UP. Altitude is $SUN_ALT deg."
     return 0
   else
-    echo "Sun is DOWN. Altitude is $SUN_ALT deg."
+    alert "Sun has set! Altitude is $SUN_ALT deg."
     return 1
   fi
 }
 
+alert "Waiting for sun to set before continuing..."
 while sunIsUp
 do
     sleep 60
