@@ -3,13 +3,14 @@
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 source $DIR/utils
+source $DIR/stars.conf
 
 #command for plate solving, auto-offset script?
 PINPOINT="/home/mcnowinski/anaconda2/bin/python $DIR/pinpoint.py"
 
-if [ $# -ne 6 ]; then
+if [ $# -ne 7 ]; then
 	echo "This routine takes a sequence of images."
-    echo "Usage: iloop <number of images> <exposure time (seconds)> <binning, e.g., 2> <filter, e.g. clear> <ra (HH:MM:SS)> <dec (DD:MM:SS)>"
+    echo "Usage: iloop <number of image sets> <exposure time (seconds)> <binning, e.g., 2> <filters, e.g. clear,g-band,i-band> <ra (HH:MM:SS)> <dec (DD:MM:SS)> <target name>"
     exit 1
 fi
 
@@ -17,16 +18,33 @@ fi
 NUM_IMAGES=$1
 EXPOSURE_SEC=$2
 BINNING=$3
-FILTER=$4
+FILTER_NAMES=$4
 RA=$5
 DEC=$6
-COUNT=0
+NAME=$7
+COUNT=0$filter
 DO_PINPOINT=1
 
-#get the target images
-alert "Taking $NUM_IMAGES image(s) (bin=$BINNING, time=$EXPOSURE_SEC)..."
+USER=mcnowinski
 
-#checkCCDTemp
+#get array of filters
+FILTERS=(${FILTER_NAMES//,/ })
+#for filter in "${FILTERS[@]}"
+#do
+#    echo $filter
+#done
+#exit 1
+
+#copy new image to STARS server, i.e. stars.uchicago.edu
+#ensure ssh keys are already set up!
+#ensure image target folder exists
+IMAGE_PATHNAME=$STARS_IMAGE_PATH/`date -u +"%Y"`/`date -u +"%Y-%m-%d"`/${NAME}
+#ssh -q -i $STARS_PRIVATE_KEY_PATH $STARS_USERNAME@$STARS_SERVER "mkdir -p $IMAGE_PATHNAME; exit"
+
+#get the target images
+alert "Taking $NUM_IMAGES image set(s) (bin=$BINNING, time=$EXPOSURE_SEC, filter(s)=$FILTER_NAMES)..."
+
+checkCCDTemp
 #checkSlit
 #checkAlt
 #checkClouds
@@ -36,40 +54,55 @@ tx point ra=$RA dec=$DEC
 #pinpoint $RA $DEC
 #tx track on
 
-for (( k=1; k<=$NUM_IMAGES; k++ ))
-do
-  checkCCDTemp
-  checkSlit
-  checkAlt
-  checkClouds
-  #ensure tracking is on
-  debug "Refining telescope position..."
-  if [ $DO_PINPOINT -eq 1 ]
-  then
-	  $PINPOINT $RA $DEC
-	  if [ $? -eq 1 ]
-	  then
-		debug "Error. Pinpoint command failed."
-		#DO_PINPOINT=0
+for (( k=1; k<=$NUM_IMAGES; k++ )); do
+    #repeat for each filter
+    for filter in "${FILTERS[@]}"
+    do
+      #checkCCDTemp
+      checkSlit
+      checkAlt
+      checkClouds
+      #ensure tracking is on
+      debug "Refining telescope position..."
+      if [ $DO_PINPOINT -eq 1 ]
+      then
+          $PINPOINT $RA $DEC
+          if [ $? -eq 1 ]
+          then
+            debug "Error. Pinpoint command failed."
+            #DO_PINPOINT=0
+          else
+            debug "Telescope PIN-pointed to RA/DEC=$RA/$DEC!"	
+          fi
       else
-        debug "Telescope PIN-pointed to RA/DEC=$RA/$DEC!"	
-	  fi
-  else
-	  debug "Pinpoint command failed."  
-  fi
-  #ensure dome is centered on telescope pointing location
-  tx dome center > /dev/null
-  tx track on > /dev/null
-  #report position
-  tx where
-  #get scope info
-  tx taux
-  pfilter $FILTER
-  getImage $EXPOSURE_SEC $BINNING "" `date -u +"%Y%m%d.%H%M%S%3N"`.`printf "%03d" $COUNT`.fits
-  if [ $SUCCESS -eq 1 ]
-  then
-	COUNT=$((COUNT+1))
-  fi
+          debug "Pinpoint command failed."  
+      fi
+      #ensure dome is centered on telescope pointing location
+      tx dome center > /dev/null
+      tx track on > /dev/null
+      #report position
+      tx where
+      #get scope info
+      tx taux
+      pfilter $filter
+      IMAGE_FILENAME=${NAME}_${filter}_${EXPOSURE_SEC}sec_bin${BINNING}_${USER}_`date -u +"%Y%b%d_%Hh%Mm%Ss"`_num`printf "%04d" $COUNT`_seo.fits
+      getImage $EXPOSURE_SEC $BINNING $IMAGE_FILENAME
+      if [ $SUCCESS -eq 1 ]
+      then
+        COUNT=$((COUNT+1))
+        #copy new image to STARS server, i.e. stars.uchicago.edu
+        #ensure ssh keys are already set up!
+        #ensure image target folder exists
+        #IMAGE_PATHNAME=$STARS_IMAGE_PATH/`date -u +"%Y"`/`date -u +"%Y-%m-%d"`/${NAME}
+        #scp -q -i $STARS_PRIVATE_KEY_PATH $IMAGE_FILENAME $STARS_USERNAME@$STARS_SERVER:$IMAGE_PATHNAME/$IMAGE_FILENAME
+      fi
+    done
 done
 
 alert "Image sequence complete. Obtained $COUNT image(s)."
+
+#copy new image to STARS server, i.e. stars.uchicago.edu
+#ensure ssh keys are already set up!
+#ensure image target folder exists
+#IMAGE_PATHNAME=$STARS_IMAGE_PATH/`date -u +"%Y"`/`date -u +"%Y-%m-%d"`/${NAME}
+tostars './*.fits' $IMAGE_PATHNAME &

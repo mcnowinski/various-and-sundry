@@ -26,7 +26,6 @@ matplotlib.use('Agg') #don't need display
 import matplotlib.pyplot as plt
 from astropy.visualization import astropy_mpl_style
 plt.style.use(astropy_mpl_style)
-
 #python timezones
 import pytz
 
@@ -80,12 +79,12 @@ def doTest(command, user):
     #send_message("", [{"fields": [{"title": "Priority","value": "<http://i.imgur.com/nwo13SM.png|test>","short": True},{"title": "Priority","value": "Low","short": True}]}])    
 
 def getObservability(command, user):
-    match = re.search('^\\\\(observe)(\\s[0-9]+)?', command)
+    match = re.search('^\\\\(plot)\\s?([0-9]+)?', command)
     if(match):
-        if len(match.groups()) >= 3:
+        if match.group(2):
             object_index = int(match.group(2).strip())
         else:
-            logme('No object index provided in \\observe command. Choosing first object...')
+            logme('No object index provided in \\plot command. Choosing first object...')
             object_index = 1
     else:
         logme('Error. Unexpected command format (%s).'%command)
@@ -116,6 +115,8 @@ def getObservability(command, user):
     #select specific object from the find list
     object = objects[object_index-1]
 
+    send_message('Itzamna is calculating when "%s" is observable from your location. Please wait...'%object['name'])
+    
     logme('Checking observability of %s (%d)...'%(object['name'],object_index))    
     
     #calculate local time of observatory    
@@ -148,15 +149,294 @@ def getObservability(command, user):
         plt.xlabel('Hours [from now]')
         plt.ylabel('Altitude [deg]')
         #plt.show()     
-        plt.savefig('observe.png', bbox_inches='tight') 
+        plt.savefig('plot.png', bbox_inches='tight') 
         plt.close()
-        send_file('observe.png', 'Target (%s) Visibility'%object['name'])
+        send_file('plot.png', 'Target (%s) Visibility'%object['name'])
     elif object['type'] == 'Solar System':
-        send_message('Itzamna does not recognize the object type (%s).'%object['type'])
+        #send_message('Itzamna does not recognize the object type (%s).'%object['type'])
+        #set time period to next 24 hours
+        #observer_now = Time(datetime.datetime.utcnow(), scale='utc')
+        start = observer_now.tt.datetime
+        end = start+datetime.timedelta(days=1)
+        #get object ephemerides for time range
+        result=ch.query(object['id'], smallbody=False)
+        result.set_epochrange(start.strftime("%Y/%m/%d %H:%M"), end.strftime("%Y/%m/%d %H:%M"), '1m')
+        result.get_ephemerides(observatory_code)
+        #plot it
+        delta_now = numpy.linspace(0, 24, 1441)*u.hour
+        altitude = numpy.array(result['EL'])
+        azimuth = numpy.array(result['AZ'])
+        times_now_to_tomorrow = observer_now + delta_now
+        #print times_now_to_tomorrow
+        frame_now_to_tomorrow = AltAz(obstime=times_now_to_tomorrow, location=object_observer)
+        sun_altaz_now_to_tomorrow = get_sun(times_now_to_tomorrow).transform_to(frame_now_to_tomorrow)
+        plt.scatter(delta_now, altitude,
+                    c=azimuth, label=object['name'], lw=0, s=8,
+                    cmap='viridis')
+        plt.fill_between(delta_now.to('hr').value, 0, 90,
+                         sun_altaz_now_to_tomorrow.alt < -0*u.deg, color='0.5', zorder=0)
+        plt.fill_between(delta_now.to('hr').value, 0, 90,
+                         sun_altaz_now_to_tomorrow.alt < -18*u.deg, color='k', zorder=0)
+        plt.colorbar().set_label('Azimuth [deg]')
+        plt.legend(loc='upper left')
+        plt.xlim(0, 24)
+        plt.xticks(numpy.arange(13)*2)
+        plt.ylim(0, 90)
+        plt.xlabel('Hours [from now]')
+        plt.ylabel('Altitude [deg]')
+        plt.savefig('plot.png', bbox_inches='tight') 
+        plt.close()
+        send_file('plot.png', 'Target (%s) Visibility'%object['name'])
     elif object['type'] == 'Satellite':
-        send_message('Itzamna does not recognize the object type (%s).'%object['type'])
+        print object['id'], object['tle_line1'], object['tle_line2']
+        sat_ephem = ephem.readtle(object['id'], object['tle_line1'], object['tle_line2'])
+        #look 24 hours into the future
+        delta_now = numpy.linspace(0, 24, 10000)*u.hour
+        times_now_to_tomorrow = observer_now + delta_now
+        frame_now_to_tomorrow = AltAz(obstime=times_now_to_tomorrow, location=object_observer)   
+        sun_altaz_now_to_tomorrow = get_sun(times_now_to_tomorrow).transform_to(frame_now_to_tomorrow)
+        alt = []
+        az = []
+        for time_now_to_tomorrow in times_now_to_tomorrow:
+            dt = time_now_to_tomorrow.tt.datetime
+            sat_observer.date = dt
+            sat_ephem.compute(sat_observer)
+            #sat_coords = SkyCoord(ra='%s'%sat_ephem.ra, dec='%s'%sat_ephem.dec, unit=(u.hour, u.deg))
+            alt.append(math.degrees(float(repr(sat_ephem.alt))))
+            az.append(math.degrees(float(repr(sat_ephem.az))))
+            #lat = math.degrees(float(repr(sat_ephem.sublat)))
+            #lon = math.degrees(float(repr(sat_ephem.sublong)))
+        print numpy.mean(alt)
+        plt.scatter(delta_now, alt,
+                    c=az, label=object['name'], lw=0, s=8,
+                    cmap='viridis')
+        plt.fill_between(delta_now.to('hr').value, 0, 90,
+                         sun_altaz_now_to_tomorrow.alt < -0*u.deg, color='0.5', zorder=0)
+        plt.fill_between(delta_now.to('hr').value, 0, 90,
+                         sun_altaz_now_to_tomorrow.alt < -18*u.deg, color='k', zorder=0)
+        plt.colorbar().set_label('Azimuth [deg]')
+        plt.legend(loc='upper left')
+        plt.xlim(0, 24)
+        plt.xticks(numpy.arange(13)*2)
+        plt.ylim(0, 90)
+        plt.xlabel('Hours [from now]')
+        plt.ylabel('Altitude [deg]')
+        #plt.show()     
+        plt.savefig('plot.png', bbox_inches='tight') 
+        plt.close()
+        send_file('plot.png', 'Target (%s) Visibility'%object['name'])
     else:
         send_message('Itzamna does not recognize the object type (%s).'%object['type'])
+
+def doCrack(command, user):
+    #this command requires that user has telescope locked
+    if not lockedByYou(user):
+        send_message('Please lock the telescope before calling this command.')
+        return
+        
+    send_message("Itzamna is opening ('cracking') observatory. Please wait...")
+    
+    (output, error, pid) = runSubprocess(['tin','interrupt']) 
+    logme(output)
+
+    (output, error, pid) = runSubprocess(['openup','nocloud'])
+    logme(output)
+
+    (output, error, pid) = runSubprocess(['keepopen','maxtime=36000','slit'])
+    logme(output)
+
+    send_message("The observatory was successfully opened ('cracked')!")
+
+def doSqueeze(command, user):
+    #this command requires that user has telescope locked
+    if not lockedByYou(user):
+        send_message('Please lock the telescope before calling this command.')
+        return
+        
+    send_message("Itzamna is closing ('squeezing') the observatory. Please wait...")
+
+    (output, error, pid) = runSubprocess(['tin','interrupt']) 
+    logme(output)
+
+    (output, error, pid) = runSubprocess(['closedown'])
+    logme(output)
+    
+    (output, error, pid) = runSubprocess(['tx','lock','clear'])    
+    if not re.search('done lock', output):
+        logme('Error. Could not clear lock') 
+
+    (output, error, pid) = runSubprocess(['tin','resume'])    
+    logme(output)
+    
+    send_message("The observatory was successfully closed ('squoze')!")
+
+def doImage(command, user):
+    #this command requires that user has telescope locked
+    if not lockedByYou(user):
+        send_message('Please lock the telescope before calling this command.')
+        return
+
+    match = re.search('^\\\\(image) ([0-9]+) (0|1|2|3|4) (u\\-band|g\\-band|r\\-band|i\\-band|z\\-band|clear|h\\-alpha)', command, re.IGNORECASE)
+    if(match):
+        exposure = match.group(2)
+        binning = match.group(3)
+        filter = match.group(4)
+        send_message('Taking image (exposure=%s s, bin=%s, filter=%s). Please wait...'%(exposure, binning, filter))
+    else:
+        logme('Error. Unexpected command format (%s).'%command)
+        return
+    
+    fits = image_path + '%s_%s_%ssec_bin%s_%s_%s_num%d_seo.fits'%('unknown', filter, exposure, binning, 'mcnowinski', datetime.datetime.utcnow().strftime('%Y%b%d_%Hh%Mm%Ss.%f'), 0)
+    fits = fits.replace(' ', '_')
+    slackdebug('Taking image (%s)...'%(fits))
+    #(output, error, pid) = runSubprocess(['image','dark','time=%d'%t_exposure,'bin=%d'%bin, 'outfile=%s'%fits])
+    (output, error, pid) = runSubprocess(['image','time=%s'%exposure,'bin=%s'%binning, 'outfile=%s'%fits])    
+    if not error:
+        send_message('Got image (%s).'%fits)
+        slackpreview(fits)        
+    else:
+        send_message('Error. Image command failed (%s).'%fits) 
+    
+#send alert message to slack        
+def slackdebugalert(msg):
+    msg = datetime.datetime.utcnow().strftime('%m-%d-%Y %H:%M:%S ') + msg
+    (output, error, pid) = runSubprocess(['slackalert',msg])
+        
+#send debug message to slack        
+def slackdebug(msg):
+    msg = datetime.datetime.utcnow().strftime('%m-%d-%Y %H:%M:%S ') + msg
+    (output, error, pid) = runSubprocess(['slackdebug',msg])
+
+#send preview of fits image to Slack    
+def slackpreview(fits):
+    (output, error, pid) = runSubprocess(['stiffy',fits,'image.tif'])
+    (output, error, pid) = runSubprocess(['convert','-resize','50%','-normalize','-quality','75','image.tif','image.jpg'])
+    (output, error, pid) = runSubprocess(['slackpreview_itzamna','image.jpg', fits])
+    (output, error, pid) = runSubprocess(['rm','image.jpg', 'image.tif'])    
+        
+def doTrack(command, user):
+    #this command requires that user has telescope locked
+    if not lockedByYou(user):
+        send_message('Please lock the telescope before calling this command.')
+        return
+
+    match = re.search('^\\\\(track) (on|off)', command, re.IGNORECASE)
+    if(match):
+        toggle = match.group(2)
+        (output, error, pid) = runSubprocess(['tx','track',toggle])    
+        #send_message(output)
+        #done track ha=15.0410 dec=0.0000
+        if not re.search('done track ha\\=[0-9\\+\\-\\.]+\\sdec\\=[0-9\\+\\-\\.]+', output):
+            send_message('Error. Could not set telescope tracking to %s.'%toggle)  
+        else:
+            send_message('Telescope tracking is %s.'%toggle)         
+    else:
+        logme('Error. Unexpected command format (%s).'%command)
+        return
+ 
+def doPointByObjectNum(command, user): 
+    match = re.search('^\\\\(point)\\s?([0-9]+)?', command)
+    if(match):
+        if match.group(2):
+            object_index = int(match.group(2).strip())
+        else:
+            logme('No object index provided in \\point command. Choosing first object...')
+            object_index = 1
+    else:
+        logme('Error. Unexpected command format (%s).'%command)
+        return
+     
+    #this command requires that user has telescope locked
+    if not lockedByYou(user):
+        send_message('Please lock the telescope before calling this command.')
+        return     
+     
+    #if we don't have any objects from \find, go home
+    if len(objects) <= 0:
+        send_message('Itzamna does not remember any objects. Please run `\\find <object>` to remind me.')
+        return
+    
+    #if specified index does not match our object list, go home
+    if object_index <= 0 or object_index > len(objects):
+        send_message('Itzamna only remembers %d object(s):'%len(objects))
+        report = ''
+        index = 1
+        #calculate local time of observatory    
+        object_observer_now = Time(datetime.datetime.utcnow(), scale='utc') # + object_observer_utc_offset 
+        for object in objects:
+            #create SkyCoord instance from RA and DEC
+            c = SkyCoord(object['RA'], object['DEC'], unit="deg")
+            #transform RA,DEC to alt, az for this object from the observatory
+            altaz = c.transform_to(AltAz(obstime=object_observer_now, location=object_observer))
+            ra = Angle('%fd'%object['RA']).to_string(unit=u.hour, sep=':')
+            dec = Angle('%fd'%object['DEC']).to_string(unit=u.degree, sep=':')
+            report += '%d.\t%s object (%s) found at RA=%s, DEC=%s, ALT=%f, AZ=%f.\n'%(index, object['type'], object['name'], ra, dec, altaz.alt.degree, altaz.az.degree)
+            index += 1
+        send_message(report)
+        return
+            
+    #select specific object from the find list
+    object = objects[object_index-1]
+
+    send_message('Itzamna is pointing the telescope to "%s". Please wait...'%object['name'])
+    logme('Pointing the telscope to %s (%d)...'%(object['name'],object_index)) 
+    
+    (output, error, pid) = runSubprocess(['tx','track','on'])    
+    #send_message(output)
+    if not re.search('done track ha\\=[0-9\\+\\-\\.]+\\sdec\\=[0-9\\+\\-\\.]+', output):
+        send_message('Error. Could not enable telescope tracking (%s).'%output)  
+        return
+    
+    ra = Angle('%fd'%object['RA']).to_string(unit=u.hour, sep=':')
+    dec = Angle('%fd'%object['DEC']).to_string(unit=u.degree, sep=':')
+    (output, error, pid) = runSubprocess(['tx','point','ra=%s'%ra,'dec=%s'%dec])
+    #done point move=62.455 dist=0.0031
+    #send_message(output)
+    if not re.search('done point move\\=[0-9\\+\\-\\.]+\\sdist\\=[0-9\\+\\-\\.]+', output):
+        send_message('Error. Could not point the telescope (%s).'%output)
+        return
+        
+    send_message('Telescope successfully pointed to "%s" (RA=%s, DEC=%s).'%(object['name'], ra, dec))
+ 
+def doPointByRaDec(command, user):
+    match = re.search('^\\\\(point) ([0-9\\:\\-\\+\\.]+) ([0-9\\:\\-\\+\\.]+)', command)
+    if(match):
+        ra = match.group(2)
+        dec = match.group(3)
+    else:
+        logme('Error. Unexpected command format (%s).'%command)
+        return
+        
+    #this command requires that user has telescope locked
+    if not lockedByYou(user):
+        send_message('Please lock the telescope before calling this command.')
+        return
+        
+    #ensure these are valid coordinates
+    try:
+        ra_decimal = Angle(ra + '  hours')
+        dec_decimal = Angle(dec + '  degrees')
+        #print ra_decimal, dec_decimal
+    except:
+        send_message('Invalid RA/DEC coordinates.')
+        return
+        
+    send_message('Itzamna is pointing the telescope. Please wait...')    
+        
+    (output, error, pid) = runSubprocess(['tx','track','on'])    
+    #send_message(output)
+    if not re.search('done track ha\\=[0-9\\+\\-\\.]+\\sdec\\=[0-9\\+\\-\\.]+', output):
+        send_message('Error. Could not enable telescope tracking (%s).'%output)  
+        return
+    
+    (output, error, pid) = runSubprocess(['tx','point','ra=%s'%ra,'dec=%s'%dec])
+    #done point move=62.455 dist=0.0031
+    #send_message(output)
+    if not re.search('done point move\\=[0-9\\+\\-\\.]+\\sdist\\=[0-9\\+\\-\\.]+', output):
+        send_message('Error. Could not point the telescope (%s).'%output)
+        return
+        
+    send_message('Telescope successfully pointed to RA=%s, DEC=%s.'%(ra,dec))
     
 def getObject(command, user):
     global objects
@@ -167,15 +447,41 @@ def getObject(command, user):
         logme('Error. Unexpected command format (%s).'%command)
         return  
         
-    logme('Searching for object (%s)...'%lookup)
+    send_message('Itzamna is searching the cosmos for "%s". Please wait...'%lookup)
     objects = [] #all objects found
+    #max match results per type
+    max_results = 50
+    #
+    #search celestial objects using SkyCoord
+    #
+    #found_celestial_object = False
+    try:
+        #result = SkyCoord.from_name(lookup)      
+        #objects.append({'type':'Celestial', 'name':lookup, 'RA':result.ra.degree, 'DEC':result.dec.degree})
+        result_table = Simbad.query_object(lookup.upper().replace('*',''))
+        #print len(result_table), result_table
+        #send_message('Found %d celestial match(es) for "%s".'%(len(result_table),lookup))
+        if len(result_table) > max_results:
+            send_message('Exceeded maximum celestial matches. Will only return %d celestial results.'%(max_results))
+        count = 0
+        for row in range(0,len(result_table)):
+            if count >= max_results:
+                break
+            count += 1
+            #print result_table['MAIN_ID'][row], result_table['RA'][row], result_table['DEC'][row]
+            objects.append({'type':'Celestial', 'id':result_table['MAIN_ID'][row] , 'name':result_table['MAIN_ID'][row].replace(' ',''), 'RA': Angle(result_table['RA'][row].replace(' ',':') + ' hours').degree, 'DEC': Angle(result_table['DEC'][row].replace(' ',':') + ' degrees').degree})            
+    except:
+        pass
+    send_message('Found %d celestial match(es) for "%s".'%(len(objects),lookup))
     #    
     #search solar system small bodies using JPL HORIZONS
     #
     #list of matches
     object_names = []
+    #set to * to make the searches wider by default
+    suffix = ''
     #two passes, one for major (and maybe small) and one for (only) small bodies
-    lookups = [lookup, lookup + ';']
+    lookups = [lookup + suffix, lookup + suffix + ';']
     for repeat in range(0,2):
         #user JPL Horizons batch to find matches
         f = urllib2.urlopen('https://ssd.jpl.nasa.gov/horizons_batch.cgi?batch=l&COMMAND="%s"'%urllib2.quote(lookups[repeat].upper()))
@@ -184,15 +490,23 @@ def getObject(command, user):
         lines = output.splitlines() #line by line
         #no matches? go home
         if re.search('No matches found', output):
-            logme('No matches found in JPL Horizons for %s.'%lookups[repeat].upper())
+            logme('No matches found in JPL Horizons for %s.'%lookups[repeat].upper())       
         elif re.search('Target body name:', output):        
+            logme('Single match found in JPL Horizons for %s.'%lookups[repeat].upper().replace(suffix,''))
             #just one match?
             #if major body search (repeat = 0), ignore small body results
-            if repeat == 0 and re.search('Small-body perts:', output):
-                continue
-            logme('Single match found in JPL Horizons for %s.'%lookups[repeat].upper())
-            #user search term is unique, so use it!
-            object_names.append(lookups[repeat].upper())
+            #if major body search, grab integer id
+            if repeat == 0:
+                if re.search('Small-body perts:', output):
+                    continue
+                match = re.search('Target body name:\\s[a-zA-Z]+\\s\\((\\d+)\\)', output)
+                if match:
+                    object_names.append(match.group(1))
+                else:
+                    logme('Error. Could not parse id for single match major body (%s).'%lookups[repeat].upper().replace(suffix,''))
+            else:
+                #user search term is unique, so use it!
+                object_names.append(lookups[repeat].upper().replace(suffix,''))
         elif repeat == 1 and re.search('Matching small-bodies', output):
             logme('Multiple small bodies found in JPL Horizons for %s.'%lookups[repeat].upper())
             #Matching small-bodies: 
@@ -254,12 +568,21 @@ def getObject(command, user):
                 if int(match.group(1)) != match_count:
                     logme('Multiple JPL major body parsing error!')
                 else:
-                    logme('Multiple JPL major body parsing successful!')     
-    #print object_names    
+                    logme('Multiple JPL major body parsing successful!')
     start = datetime.datetime.utcnow()
     end = start+datetime.timedelta(seconds=60)
+    send_message('Found %d solar system match(es) for "%s".'%(len(object_names),lookup))
+    if len(object_names) > max_results:
+        send_message('Exceeded maximum solar system matches. Will only return %d solar system results.'%(max_results))
+    count = 0
+    if len(object_names):
+        send_message('Calculating current sky positions of solar system match(es)...')
     for object_name in object_names:
+        if count >= max_results:
+            break
+        count += 1
         try:
+            #print object_name.upper()
             result=ch.query(object_name.upper(), smallbody=False)
             result.set_epochrange(start.strftime("%Y/%m/%d %H:%M"), end.strftime("%Y/%m/%d %H:%M"), '1m')
             result.get_ephemerides(observatory_code)
@@ -271,24 +594,38 @@ def getObject(command, user):
     #    
     #search satellites
     #
+    num_sat_matches = 0
     for sat in norad_sat_db:
-        if sat[0].find(lookup.upper()) >= 0:
+        got_match = False
+        if lookup.find('*') >= 0:
+            got_match = (sat[0].find(lookup.upper().replace('*','')) >= 0)
+        else:
+            got_match = (sat[0] == lookup.upper())
+        #print got_match
+        if got_match:
+            if num_sat_matches >= max_results:
+                break
+            num_sat_matches += 1 
             sat_name = sat[0]
             sat_tle_line1 = sat[1]
             sat_tle_line2 = sat[2]
+            print sat
             sat_ephem = ephem.readtle(sat_name, sat_tle_line1, sat_tle_line2)
             sat_observer.date = datetime.datetime.utcnow()
             sat_ephem.compute(sat_observer)
             sat_coords = SkyCoord(ra='%s'%sat_ephem.ra, dec='%s'%sat_ephem.dec, unit=(u.hour, u.deg))
-            objects.append({'type':'Satellite', 'id':sat_name, 'name':sat_name, 'RA':math.degrees(float(repr(sat_ephem.ra))), 'DEC':math.degrees(float(repr(sat_ephem.dec)))})            
+            objects.append({'type':'Satellite', 'tle_line1':sat_tle_line1, 'tle_line2':sat_tle_line2, 'id':sat_name, 'name':sat_name, 'RA':math.degrees(float(repr(sat_ephem.ra))), 'DEC':math.degrees(float(repr(sat_ephem.dec)))})            
             #alt = math.degrees(float(repr(sat_ephem.alt)))
             #lat = math.degrees(float(repr(sat_ephem.sublat)))
             #lon = math.degrees(float(repr(sat_ephem.sublong)))
             #if(alt > 5):
             #    print '%s: %s %s %f %s %f %f'%(name, sat_ephem.ra, sat_ephem.dec, alt, sat_ephem.az, lat, lon)
-            
-    logme('Found %d objects.'%len(objects))
-    #calc current alt and az, then send information to Slack
+    send_message('Found %d satellite match(es) for "%s".'%(num_sat_matches,lookup))
+    if num_sat_matches > max_results:
+        send_message('Exceeded maximum satellite matches. Will only return %d satellite results.'%(max_results))
+    #
+    #process total search restults    
+    #calc current alt and az, then send information to Slack    
     if len(objects) > 0:
         report = ''
         index = 1
@@ -296,20 +633,22 @@ def getObject(command, user):
         #object_observer_utc_offset = int(datetime.datetime.now(pytz.timezone(observatory_tz)).strftime('%z'))/100.0*u.hour 
         object_observer_now = Time(datetime.datetime.utcnow(), scale='utc') # + object_observer_utc_offset 
         #print object_observer_now
-        for object in objects:
+        for object in objects:       
             #create SkyCoord instance from RA and DEC
             c = SkyCoord(object['RA'], object['DEC'], unit="deg")
             #print object, c
             #transform RA,DEC to alt, az for this object from the observatory
             altaz = c.transform_to(AltAz(obstime=object_observer_now, location=object_observer))
             #print altaz.az.degree, altaz.alt.degree
-            report += '%d.\t%s object (%s) found at RA=%s, DEC=%s, ALT=%f, AZ=%f.\n'%(index, object['type'], object['name'], object['RA'], object['DEC'], altaz.alt.degree, altaz.az.degree)
+            ra = Angle('%fd'%object['RA']).to_string(unit=u.hour, sep=':')
+            dec = Angle('%fd'%object['DEC']).to_string(unit=u.degree, sep=':')
+            report += '%d.\t%s object (%s) found at RA=%s, DEC=%s, ALT=%f, AZ=%f.\n'%(index, object['type'], object['name'], ra, dec, altaz.alt.degree, altaz.az.degree)
             index += 1
         send_message(report)        
     else:
         send_message('Sorry, Itzamna knows all but *still* could not find "%s".'%lookup)          
     
-def isLocked():
+def lockedBy():
     logme('Checking to see if the telescope is locked...')
     
     locked_by = (None, None)
@@ -321,13 +660,21 @@ def isLocked():
         locked_by = (match.group(1), match.group(2))
         logme('Telescope is currently locked by %s (%s).'%(match.group(1),match.group(2)))
     return locked_by
+
+def lockedByYou(user):
+    #check to make sure the telescope is locked by us!
+    (username,email) = lockedBy()
+    if username != user['name']:
+        return False
+    else:
+        return True
     
 #tx lock user=mcnowinski email=mcnowinski@gmail.com phone=7032869140 comment=slack
 def doLock(command, user):
     logme('Locking the telescope...')
     
     #check to make sure the telescope isn't already locked
-    (username, email) = isLocked()
+    (username, email) = lockedBy()
     if username:
         send_message('The telescope is already locked by %s (%s)!'%(username,email))
         return False
@@ -346,14 +693,14 @@ def doLock(command, user):
         send_message('Telescope successfully locked!')   
     else:
         logme('Error. Telescope could not be locked (%s)'%output)
-        send_message('Telescope could *not* be locked!')
-
+        send_message('Telescope could *not* be locked!')       
+        
 #tx lock user=mcnowinski email=mcnowinski@gmail.com phone=7032869140 comment=slack
 def doUnLock(command, user):
     logme('Unlocking the telescope...')
     
     #check to make sure the telescope is locked and if so, locked by us!
-    (username,email) = isLocked()
+    (username,email) = lockedBy()
     #is telescope locked?
     if not username:
         send_message("The telescope is not locked.")
@@ -448,7 +795,7 @@ def doWelcome():
     #show help
     getHelp('\\help')
 
-    isLocked()    
+    lockedBy()    
 
 #get ClearDarkSky chart
 def getClearDarkSky(command, user):
@@ -518,13 +865,18 @@ def getHelp(command, user=None):
                     '>`\\where` shows where the telescope is pointing\n' + \
                     '>`\\weather` shows the current weather conditions\n' + \
                     '>`\\forecast` shows the hourly weather forecast\n' + \
-                    '>`\\stats` shows the weekly telescope statistics\n' + \
+                    #'>`\\stats` shows the weekly telescope statistics\n' + \
                     '>`\\clearsky` shows the Clear Sky chart(s)\n' + \
-                    '>`\\find <object>` finds <object> position in sky\n' + \
-                    '>`\\observe <object #>` shows if/when <object> is observable (run `\\find` first!)\n' + \
+                    '>`\\find <object>` finds <object> position in sky (add wildcard `*` to widen search)\n' + \
+                    '>`\\plot <object#>` shows if/when <object> is observable (run `\\find` first!)\n' + \
                     '>`\\lock` locks the telescope\n' + \
-                    '>`\\unlock` unlocks the telescope\n' \
-                    )
+                    '>`\\unlock` unlocks the telescope\n' + \
+                    '>`\\crack` opens the observatory\n' + \
+                    '>`\\squeeze` closes the observatory\n' + \
+                    '>`\\point <RA (hh:mm:ss.s)> <DEC (dd:mm:ss.s)>` or `\\point <object#>` points the telescope\n' + \
+                    '>`\\image <exposure> <binning> <filter>` takes a picture\n' + \
+                    '>`\\track <on/off>` toggles telescope tracking\n'                    
+                )
     send_message('\n')
 
 def abort(msg):
@@ -647,7 +999,7 @@ def parse_command(text, user, dt):
     match = False
     for command in commands:
         #match the command first, then look for
-        match = re.search(command[0], text)
+        match = re.search(command[0], text, re.IGNORECASE)
         if match: #compare with list of known commands, spelling and capitalization count!
             logme('%s sent command (%s).'%(user['profile']['first_name'], text))
             #call associated function
@@ -683,6 +1035,7 @@ norad_sats_urls = [
 'http://www.celestrak.com/NORAD/elements/iridium.txt',
 'http://www.celestrak.com/NORAD/elements/iridium-NEXT.txt'
 ]
+image_path = '/home/mcnowinski/tmp/'
 ###############################
 #CHANGE THESE VALUES AS NEEDED#
 ############################### 
@@ -703,10 +1056,16 @@ commands = [
 ['^\\\\(slit)',getSlit],
 ['^\\\\(test)', doTest],
 ['^\\\\(find) ([a-zA-Z0-9\\s\\-\\+\\*]+)', getObject],
-['^\\\\(observe)(\\s[0-9]+)?', getObservability],
+['^\\\\(plot)\\s?([0-9]+)?', getObservability],
 ['^\\\\(stats)', getStats],
+['^\\\\(point) ([0-9\\:\\-\\+\\.]+) ([0-9\\:\\-\\+\\.]+)', doPointByRaDec],
+['^\\\\(point)\\s?([0-9]+)?', doPointByObjectNum],
+['^\\\\(track) (on|off)', doTrack],
+['^\\\\(crack)', doCrack],
+['^\\\\(squeeze)', doSqueeze],
+['^\\\\(image) ([0-9]+) (0|1|2|3|4) (u\\-band|g\\-band|r\\-band|i\\-band|z\\-band|clear|h\\-alpha)', doImage],
 ['^\\\\(lock)', doLock],
-['^\\\\(unlock)', doUnLock],
+['^\\\\(unlock)', doUnLock]
  
 ]
 
@@ -742,7 +1101,7 @@ observatory_tz = 'US/Pacific' #for pytz
 norad_sat_db = numpy.array([]).reshape(0,3)
 #set pyephem observer
 sat_observer = ephem.Observer()
-sat_observer.lat, sat_observer.lon = observatory_lat, observatory_lon
+sat_observer.lat, sat_observer.lon = '%f'%observatory_lat, '%f'%observatory_lon
 #calc SkyCoord Earth location of observatory    
 object_observer = EarthLocation(lat=observatory_lat*u.deg, lon=observatory_lon*u.deg, height=observatory_elev*u.m) 
 #current object list

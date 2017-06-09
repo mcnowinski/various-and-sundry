@@ -1,0 +1,22 @@
+#!/bin/bash
+
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+source $DIR/utils
+
+if [ $# -ne 1 ]; then
+	echo "This routine loops until a certain UTC time (in current day)."
+    echo "Usage: waitfor <UTC time (HH:MM)>"
+    exit 1
+fi
+
+DT=$1
+
+#wait until ?
+while [ $(date -u +%H:%M) != "${DT}" ]
+do
+    debug "Waiting for ${DT} start time..."
+    sleep 30
+done
+
+debug "Done waiting!"

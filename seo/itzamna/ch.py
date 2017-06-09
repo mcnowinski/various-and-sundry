@@ -758,11 +758,12 @@ class query():
                         this_eph.append(np.nan)
                     fieldnames.append('alpha')
                     datatypes.append(np.float64)
-                elif (item.find('/r') > -1):
-                    this_eph.append({'/L':'leading', '/T':'trailing'}\
-                                    [line[idx]])
-                    fieldnames.append('elongFlag')
-                    datatypes.append(object)
+#matt 042417 this crashed for sun                    
+#                elif (item.find('/r') > -1):
+#                    this_eph.append({'/L':'leading', '/T':'trailing'}\
+#                                    [line[idx]])
+#                    fieldnames.append('elongFlag')
+#                    datatypes.append(object)
                 if (item.find('PsAng') > -1):
                     try:
                         this_eph.append(np.float64(line[idx]))

@@ -18,15 +18,15 @@ function point {
     fi
     #echo $1 $2
     tx track on > /dev/null 2>&1
-    alert "Pointing telescope to target (RA/DEC=$1/$2)..."
+    debug "Pointing telescope to target (RA/DEC=$1/$2)..."
     tx point ra=$1 dec=$2 > /dev/null 2>&1
-    alert "Refining telescope position..."
+    debug "Refining telescope position..."
     $PINPOINT $1 $2
 	if [ $? -eq 1 ]
 	then
-		alert "Error. Pinpoint command failed. Using mechanical tracking only."
+		debug "Error. Pinpoint command failed. Using mechanical tracking only."
 	else
-		alert "Telescope PIN-pointed to RA/DEC=$1/$2!"	
+		debug "Telescope PIN-pointed to RA/DEC=$1/$2!"	
 	fi
 }
 
