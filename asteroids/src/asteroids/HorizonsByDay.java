@@ -6,6 +6,7 @@ import java.util.Scanner;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.time.LocalDateTime;
+import java.time.Clock;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.Duration;
@@ -29,12 +30,19 @@ public class HorizonsByDay {
     static final double apMagMin = 17.0;	//only process days where apparent magnitude is brighter than this number	
     static final int stepSizeMin = 15;	//time step size in minutes of ephemeris
 	//static final LocalDateTime dtStart = LocalDateTime.of(2016, 12, 30, 0, 0); //reference start date (e.g. beginning of IRTF session)
-	static final LocalDateTime dtStart = LocalDateTime.of(LocalDate.now(), LocalTime.MIDNIGHT).plusDays(1);
 	
+    public LocalDateTime dtStart;
 	public int id = 1;
 	
 	//constructor
 	public HorizonsByDay() {
+        //if current UTC hour > 12, we are interested in the *next* day
+        LocalTime nowInUtc = LocalTime.now(Clock.systemUTC());
+        if (nowInUtc.getHour() > 12)
+        	dtStart = LocalDateTime.of(LocalDate.now(Clock.systemUTC()), LocalTime.MIDNIGHT).plusDays(1);
+        else
+        	dtStart = LocalDateTime.of(LocalDate.now(Clock.systemUTC()), LocalTime.MIDNIGHT);
+        //System.out.println(dtStart.format(DateTimeFormatter.ofPattern("MM/dd/uuuu @ HH:mm")));
 	}
 
 	public class HorizonsByDayData {
@@ -108,7 +116,7 @@ public class HorizonsByDay {
         LocalDateTime dt;
         int steps = 0;
         boolean foundMatch = false;
-        
+       
 		try {
 			//does file exist?
 			if(inputFile.isDirectory() || !inputFile.exists()) { 
@@ -279,7 +287,7 @@ public class HorizonsByDay {
                     		//count++; //count entries matching magnitude constraint
 	                		dt = LocalDateTime.parse(m.group(1), DateTimeFormatter.ofPattern("uuuu-MMM-dd HH:mm"));
 	                		//within a day in the future of dtStart
-	                		if(dt.atZone(ZoneId.systemDefault()).toEpochSecond() >= dtStart.atZone(ZoneId.systemDefault()).toEpochSecond()&& 
+	                		if(dt.atZone(ZoneId.systemDefault()).toEpochSecond() >= dtStart.atZone(ZoneId.systemDefault()).toEpochSecond() && 
 	                				Duration.between(dtStart, dt).toDays() == 0) {
 	                			if(!foundMatch) {
 	                				foundMatch = true;
@@ -406,11 +414,11 @@ public class HorizonsByDay {
     		}
     		
     		System.out.println("Testing " + files.length + " target(s) in " + path + ".\n");		
-    		        
-	        //open output file
-	        FileWriter outputFile = new FileWriter(path + dtStart.format(DateTimeFormatter.ofPattern("MMdduuuu")) + ".targets.txt");
-	        
+    		        	        
 	        HorizonsByDay horizons = new HorizonsByDay();
+	       
+	        //open output file
+	        FileWriter outputFile = new FileWriter(path + horizons.dtStart.format(DateTimeFormatter.ofPattern("MMdduuuu")) + ".targets.txt");
 	    	
         	//get data
 	    	int count = 0;

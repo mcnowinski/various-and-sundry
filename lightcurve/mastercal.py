@@ -154,6 +154,7 @@ logme('Creating master bias frames...')
 for bin in cal['bias']:
     bias_master = '%smbias.bin%d.%s.fits'%(output_path,bin,date_suffix)
     biases = None
+    logme('Combining %s bias frames for bin=%d.'%(len(cal['bias'][bin]), bin))
     for fits in cal['bias'][bin]:
         if(biases):
             biases += ','+fits

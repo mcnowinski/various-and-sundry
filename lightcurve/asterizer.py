@@ -19,11 +19,11 @@ def logme( str ):
 #input path *with* ending forward slash
 input_path='./'
 #output path *with* ending forward slash
-output_path='./asterized/'
+output_path='./wcs/'
 #log file name
 log_fname = 'log.asterized.txt'
 #suffix for output files, if any...
-output_suffix='.asterized'
+output_suffix='.wcs'
 #path to astrometry.net solve_field executable
 solve_field_path='/usr/local/astrometry/bin/solve-field'
 #plate solve this image
@@ -63,6 +63,8 @@ for new in sorted(im):
 
     #remove spaces from filename
     new_nospace = string.replace(new, ' ', '_')
+    new_nospace = string.replace(new_nospace, '(', '')
+    new_nospace = string.replace(new_nospace, ')', '')
     os.rename(new, new_nospace)
     new = new_nospace
     if(solve_field == True):
@@ -94,7 +96,7 @@ for new in sorted(im):
             dec=decA
         
         #plate solve this image, using RA/DEC from FITS header
-        output = subprocess.check_output(solve_field_path + ' --no-fits2fits --overwrite --downsample 2 --guess-scale --ra %s --dec %s --radius 1.0 --cpulimit 30 --no-plots '%(ra,dec)+'%s'%(new), shell=True)
+        output = subprocess.check_output(solve_field_path + ' --no-fits2fits --overwrite --downsample 2 --guess-scale --ra %s --dec %s --radius 10.0 --cpulimit 30 --no-plots '%(ra,dec)+'"%s"'%(new), shell=True)
         log.write(output)
         #print output
         
@@ -130,7 +132,7 @@ for new in sorted(im):
                         #print (dt_start+(dt_end-dt_start)/2)
                         dt = dt_start+(dt_end-dt_start)/2
                         session = dt.strftime("%Y-%m-%dT%Hh%Mm%Ss")
-                        session = "session.%02d.%s"%(session_count,session)
+                        session = "sess.%02d.%s"%(session_count,session)
                         try:
                             os.mkdir(output_path+session)
                         except:
@@ -243,7 +245,7 @@ for new in sorted(im):
 if(add_date_to_fname == True):
     dt = dt_start+(dt_end-dt_start)/2
     session = dt.strftime("%Y-%m-%dT%Hh%Mm%Ss")
-    session = "session.%02d.%s"%(session_count,session)
+    session = "sess.%02d.%s"%(session_count,session)
     try:
         os.mkdir(output_path+session)
     except:

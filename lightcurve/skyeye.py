@@ -13,8 +13,13 @@ from astropy import wcs
 from dateutil import parser
 from os.path import expanduser
 
+if(len(sys.argv) >= 2):
+    obs_id = int(sys.argv[1])
+else:
+    print 'Error. Invalid observation id.'
+    os.sys.exit(1)
+
 #MODIFY THESE FIELDS AS NEEDED!
-obs_id=1893313
 #image_number=17784327
 login_url='https://skynet.unc.edu/user/login'
 download_url='https://skynet.unc.edu/download/fits?image=r17784327&reducequiet=1&force_int=1'
@@ -106,10 +111,10 @@ def solveField( image ):
     #look for solution
     match = re.search('Field rotation angle\: up is ([0-9\-\.]+) degrees', output)    
     if not match:
-        for i in range(0,10):
+        for i in range(0,20):
             logme('Error! Could not solve image (%s).'%image)
             playsound(10)
-            pause(10)
+            pause(5)
     else:
         logme('Solved!')
 
@@ -158,10 +163,10 @@ while(1):
             pause(60)
             try:
                 #test to see if fits file is valid
-                d1=fits.open('%s'%(wget_fname))
+                d1=fits.open('%d.fits'%(image_number))
                 d1.close()                
             except:
-                print 'Error. Invalid FITS file (%s).'%wget_fname
+                print 'Error. Invalid FITS file (%d.fits).'%image_number
                 continue
             #try:
             solveField('%d.fits'%image_number)

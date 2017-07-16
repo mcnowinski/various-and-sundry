@@ -18,9 +18,9 @@ public class Horizons {
     static final String phaseAngName = "S-T-O";
     static final String rightAscensionName = "R.A._(ICRF/J2000.0)";
     static final String declinationName = "DEC_(ICRF/J2000.0)";    
-    static final double apMagMin = 17.0;	//only process days where apparent magnitude is brighter than this number	
+    static final double apMagMin = 18.0;	//only process days where apparent magnitude is brighter than this number	
     static final int stepSizeMin = 15;	//time step size in minutes of ephermeris
-	static final LocalDateTime dtStart = LocalDateTime.of(2017, 2, 1, 0, 0); //reference start date (e.g. beginning of IRTF session)
+	static final LocalDateTime dtStart = LocalDateTime.of(2017, 8, 1, 0, 0); //reference start date (e.g. beginning of IRTF session)
 
 	static String cookieFile = "_Horizons.txt";
 	
@@ -128,11 +128,14 @@ public class Horizons {
         double apMagAve = 0.0, apMagMinimum = 100.0;
         LocalDateTime dt_apMagMin = LocalDateTime.now();
         //phase angle
-        double phaseAngAve = 0.0, phaseAngMinimum = 360.0;
+        double phaseAngAve = 0.0, phaseAngMinimum = 360.0, phaseAngMaximum = -360.0;
         LocalDateTime dt_phaseAngMin = LocalDateTime.now();
+        LocalDateTime dt_phaseAngMax = LocalDateTime.now();
         
         String ra_phaseAngMin = "";
         String dec_phaseAngMin = "";
+        String ra_phaseAngMax = "";
+        String dec_phaseAngMax = "";
         
         int count = 0;
                
@@ -261,6 +264,12 @@ public class Horizons {
                     			ra_phaseAngMin = fields[rightAscensionIndex].trim();
                     			dec_phaseAngMin = fields[declinationIndex].trim();                    			
                     		}
+                    		if(Double.parseDouble(fields[phaseAngIndex]) > phaseAngMaximum) {
+                    			phaseAngMaximum = Double.parseDouble(fields[phaseAngIndex]);
+                    			dt_phaseAngMax = dt;
+                    			ra_phaseAngMax = fields[rightAscensionIndex].trim();
+                    			dec_phaseAngMax = fields[declinationIndex].trim();                    			
+                    		}
 	                		if(firstEntry) {
 	                			dt_start = dt_last = dt;
 	                			days = steps = 1;
@@ -286,16 +295,24 @@ public class Horizons {
     											Duration.between(dtStart, dt_apMagMin).toDays()  +  "," +
 												//phaseAng
 												String.format("%.2f", phaseAngAve) + "," +
+												//phaseAngMin
 												String.format("%.2f", phaseAngMinimum) + "," +
 												dt_phaseAngMin.format(DateTimeFormatter.ofPattern("MM/dd/uuuu")) + "," +
 												Duration.between(dtStart, dt_phaseAngMin).toDays()  +  "," +
 												ra_phaseAngMin + "," +
-												dec_phaseAngMin + "\n";	          
+												dec_phaseAngMin + "," +
+												//phaseAngMax
+												String.format("%.2f", phaseAngMaximum) + "," +
+												dt_phaseAngMax.format(DateTimeFormatter.ofPattern("MM/dd/uuuu")) + "," +
+												Duration.between(dtStart, dt_phaseAngMax).toDays()  +  "," +
+												ra_phaseAngMax + "," +
+												dec_phaseAngMax + "\n";	          
 		                			apMagAve = 0.0;
 		                			phaseAngAve = 0.0;
 		                			count = 0;
 		                			apMagMinimum = 100.0;
 		                			phaseAngMinimum = 360.0;
+		                			phaseAngMaximum = -360.0;
 		                			dt_start = dt_last = dt;
 		                			days = steps = 1;
 		                		} else if(Duration.between(dt_last, dt).toDays() == 1) {
@@ -346,11 +363,18 @@ public class Horizons {
 								Duration.between(dtStart, dt_apMagMin).toDays()  +  "," +
 								//phaseAng
 								String.format("%.2f", phaseAngAve) + "," +
+								//phaseAngMin
 								String.format("%.2f", phaseAngMinimum) + "," +
 								dt_phaseAngMin.format(DateTimeFormatter.ofPattern("MM/dd/uuuu")) + "," +
 								Duration.between(dtStart, dt_phaseAngMin).toDays()  +  "," +
 								ra_phaseAngMin + "," +
-								dec_phaseAngMin + "\n";	      		
+								dec_phaseAngMin + "," +
+								//phaseAngMax
+								String.format("%.2f", phaseAngMaximum) + "," +
+								dt_phaseAngMax.format(DateTimeFormatter.ofPattern("MM/dd/uuuu")) + "," +
+								Duration.between(dtStart, dt_phaseAngMax).toDays()  +  "," +
+								ra_phaseAngMax + "," +
+								dec_phaseAngMax + "\n";	      		
         		}	
     		}	        
 	        sc.close();
@@ -423,7 +447,7 @@ public class Horizons {
 	        //open gantt output file
 	        FileWriter outputFileGantt = new FileWriter(path + "horizons_gantt." + apMagMin + ".csv");
 	        //header
-	        outputFileGantt.write("INDEX,ID,TARGET,START,END,START_DAYS,DURATION_DAYS,DURATION_HOURS,AVE_HOURS_PER_DAY,FILENAME,APMAG_AVE,APMAG_MIN,DATE_APMAG_MIN,DATE_APMAG_MIN_DAYS,PHASEANG_AVE,PHASEANG_MIN,DATE_PHASEANG_MIN,DATE_PHASEANG_MIN_DAYS,RA_HMS,DEC_HMS\n");
+	        outputFileGantt.write("INDEX,ID,TARGET,START,END,START_DAYS,DURATION_DAYS,DURATION_HOURS,AVE_HOURS_PER_DAY,FILENAME,APMAG_AVE,APMAG_MIN,DATE_APMAG_MIN,DATE_APMAG_MIN_DAYS,PHASEANG_AVE,PHASEANG_MIN,DATE_PHASEANG_MIN,DATE_PHASEANG_MIN_DAYS,RA_HMS,DEC_HMS,PHASEANG_MAX,DATE_PHASEANG_MAX,DATE_PHASEANG_MAX_DAYS,RA_HMS,DEC_HMS\n");
 	        
 	        Horizons horizons = new Horizons();
 //	    	//get header

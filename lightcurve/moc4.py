@@ -4,16 +4,29 @@ import math
 from scipy import stats
 import numpy as np
 import matplotlib.pyplot as plt
+import os
 
 #SDSS MOC4 data file
-path = 'ADR4test1.dat'
+path = 'ADR4.dat'
 
 #solar colors (reverse calculated from Carvano)
+#reference to g
 solar_color_ug = 3.81
 solar_color_rg = 2.04
 solar_color_ig = 1.94
 solar_color_zg = 1.90
-solar_color_gg = 2.5
+solar_color_gg = 2.5 #to make LRgg = 1
+
+#4.27, 2.96, 2.5, 2.4, 2.36
+#2.32, 0.46, 0, -0.1, -0.14
+#reference to r
+solar_color_ur = solar_color_ug - solar_color_rg
+solar_color_gr = solar_color_gg - solar_color_rg
+solar_color_rr = 0.0
+solar_color_ir = solar_color_ig - solar_color_rg
+solar_color_zr = solar_color_zg - solar_color_rg
+#print solar_color_ur, solar_color_gr, solar_color_rr, solar_color_ir, solar_color_zr
+#os.sys.exit(1)
 
 #sdss wavelengths (microns)
 #0.354, 0.477, 0.6230, 0.7630 and 0.913 um
@@ -34,6 +47,60 @@ z_wavelength=0.9134
 # X   0.942   1.000   1.029   1.063   1.073   0.178  1.081  -0.089  0.481   0.136  0.478  -0.182  0.187 
 # L   0.858   1.000   1.071   1.109   1.116   0.913  2.089   0.253  0.871   0.136  0.622  -0.125  0.160 
 # D   0.942   1.000   1.075   1.135   1.213   0.085  1.717  -0.080  0.589   0.142  0.625   0.121  0.502
+LR_means = {}
+LR_means['O'] = {'LRug': 0.884, 'LRgg': 1.000, 'LRrg': 1.057, 'LRig': 1.053, 'LRzg': 0.861}
+LR_means['V'] = {'LRug': 0.810, 'LRgg': 1.000, 'LRrg': 1.099, 'LRig': 1.140, 'LRzg': 0.854}
+LR_means['Q'] = {'LRug': 0.842, 'LRgg': 1.000, 'LRrg': 1.082, 'LRig': 1.094, 'LRzg': 0.989}
+LR_means['S'] = {'LRug': 0.839, 'LRgg': 1.000, 'LRrg': 1.099, 'LRig': 1.148, 'LRzg': 1.096}
+LR_means['A'] = {'LRug': 0.736, 'LRgg': 1.000, 'LRrg': 1.156, 'LRig': 1.209, 'LRzg': 1.137}
+LR_means['C'] = {'LRug': 0.907, 'LRgg': 1.000, 'LRrg': 1.008, 'LRig': 1.011, 'LRzg': 1.021}
+LR_means['X'] = {'LRug': 0.942, 'LRgg': 1.000, 'LRrg': 1.029, 'LRig': 1.063, 'LRzg': 1.073}
+LR_means['L'] = {'LRug': 0.858, 'LRgg': 1.000, 'LRrg': 1.071, 'LRig': 1.109, 'LRzg': 1.116}
+LR_means['D'] = {'LRug': 0.942, 'LRgg': 1.000, 'LRrg': 1.075, 'LRig': 1.135, 'LRzg': 1.213}
+
+#K type calc from Wabash 2453
+LR_means['K'] = {'LRug': 0.871, 'LRgg': 1.000, 'LRrg': 1.053, 'LRig': 1.088, 'LRzg': 1.077}
+
+#calc slope and bd (Carvano 2015) for the mean taxonomic shapes (Carvano 2011)
+#LR_means['O'] = {'LRug': 0.884, 'LRgg': 1.000, 'LRrg': 1.057, 'LRig': 1.053, 'LRzg': 0.861}
+log_mean=open('moc4.mean.txt', 'w')
+log_mean.write('%s,%f,%f,%f,%f,%f\n'%('space', u_wavelength, g_wavelength, r_wavelength, i_wavelength, z_wavelength))
+log_mean.write('%s,%s,%s,%s,%s,%s,%s,%s\n'%('class', 'Rur', 'Rgr', 'Rrr', 'Rir', 'Rzr', 'slope', 'bd'))
+for key in LR_means:
+    LRug = LR_means[key]['LRug']
+    LRgg = LR_means[key]['LRgg']
+    LRrg = LR_means[key]['LRrg']
+    LRig = LR_means[key]['LRig']
+    LRzg = LR_means[key]['LRzg']
+    #
+    Cug = -2.5*LRug
+    Cgg = -2.5*LRgg
+    Crg = -2.5*LRrg
+    Cig = -2.5*LRig
+    Czg = -2.5*LRzg
+    #
+    Cur = Cug - Crg
+    Cgr = Cgg - Crg
+    Crr = 0.0
+    Cir = Cig - Crg
+    Czr = Czg - Crg
+    #
+    LRur = -Cur/2.5
+    LRgr = -Cgr/2.5
+    LRrr = -Crr/2.5
+    LRir = -Cir/2.5
+    LRzr = -Czr/2.5
+    #
+    Rur = pow(10,LRur)    
+    Rgr = pow(10,LRgr) 
+    Rrr = pow(10,LRrr) 
+    Rir = pow(10,LRir) 
+    Rzr = pow(10,LRzr)
+    #Carvano 2015 parameters
+    slope = (Rir-Rgr)/(i_wavelength-g_wavelength)
+    bd = Rzr - Rir
+    log_mean.write('%s,%f,%f,%f,%f,%f,%f,%f\n'%(key, Rur, Rgr, Rrr, Rir, Rzr, slope, bd))
+log_mean.close()
 
 CG_limits = {}
 CG_limits['O'] = {'CGguL': 0.784, 'CGguU': 1.666, 'CGrgL': 0.175, 'CGrgU': 0.505, 'CGirL':-0.143, 'CGirU': 0.106, 'CGziL': -0.833, 'CGziU': -0.467}
@@ -45,6 +112,14 @@ CG_limits['C'] = {'CGguL': 0.385, 'CGguU': 1.990, 'CGrgL':-0.140, 'CGrgU': 0.403
 CG_limits['X'] = {'CGguL': 0.178, 'CGguU': 1.081, 'CGrgL':-0.089, 'CGrgU': 0.481, 'CGirL': 0.136, 'CGirU': 0.478, 'CGziL': -0.182, 'CGziU':  0.187}
 CG_limits['L'] = {'CGguL': 0.913, 'CGguU': 2.089, 'CGrgL': 0.253, 'CGrgU': 0.871, 'CGirL': 0.136, 'CGirU': 0.622, 'CGziL': -0.125, 'CGziU':  0.160}
 CG_limits['D'] = {'CGguL': 0.085, 'CGguU': 1.717, 'CGrgL':-0.080, 'CGrgU': 0.589, 'CGirL': 0.142, 'CGirU': 0.625, 'CGziL':  0.121, 'CGziU':  0.502}
+#1 x sigma
+#1.243181211	0.516802843	0.357449432	0.074183133
+#0.870581826	0.209380322	0.137706511	-0.216456472
+#CG_limits['K'] = {'CGguL': 0.870581826, 'CGguU': 1.243181211, 'CGrgL':0.209380322, 'CGrgU': 0.516802843, 'CGirL': 0.137706511, 'CGirU': 0.357449432, 'CGziL':  -0.216456472, 'CGziU':  0.074183133}
+#2x sigma
+#1.429480904	0.670514103	0.467320892	0.219502936
+#0.684282133	0.055669061	0.027835051	-0.361776275
+CG_limits['K'] = {'CGguL': 0.684282133, 'CGguU': 1.429480904, 'CGrgL':0.055669061, 'CGrgU': 0.670514103, 'CGirL': 0.027835051, 'CGirU': 0.467320892, 'CGziL':  -0.361776275, 'CGziU':  0.219502936}
 
 #asteroid dictionary
 asteroids = defaultdict(dict)
@@ -128,6 +203,8 @@ asteroids = defaultdict(dict)
 #using pandas with a column specification defined above   
 col_specification =[ (0, 6), (7, 12), (13, 14), (15, 19), (20, 25), (26, 34), (35, 43), (46, 58), (59, 69), (70, 80), (81, 91), (92, 102), (103, 114), (116, 123), (124, 130), (131, 138), (139, 145), (146, 153), (154, 161), (163, 168), (169, 173), (174, 179), (180, 184), (185, 190), (191, 195), (196, 201), (202, 206), (207, 212), (213, 217), (218, 223), (224, 228), (230, 235), (236, 241), (242, 243), (244, 251), (252, 272), (273, 275), (276, 278), (279, 287), (289, 299), (300, 310), (311, 316), (318, 325), (326, 333), (334, 339), (341, 351), (362, 367), (368, 372), (373, 378), (379, 392), (393, 405), (406, 416), (417, 427), (428, 438), (439, 449), (450, 460), (462, 482), (483, 495), (496, 506), (507, 517), (518, 645)]
 
+print 'Reading SDSS MOC data from %s...'%path
+
 #read all lines from MOC 4 data file
 #variables to process big ole MOC4 data file
 skipRows = 0
@@ -141,6 +218,7 @@ observation_count = 0
 #log files
 log=open('moc4.log.txt', 'w')
 log_tax=open('moc4.tax.txt', 'w')
+log_tax_final=open('moc4.tax.final.txt', 'w')
 #organize the observations by asteroid
 observation={}
 while nRows >= nRowsMax:
@@ -177,6 +255,8 @@ while nRows >= nRowsMax:
             observation['aErr'] = float(data.iat[irow, 30])
             observation['V'] = float(data.iat[irow, 31])
             observation['B'] = float(data.iat[irow, 32])
+            observation['Phase'] = float(data.iat[irow, 44])
+            #print observation['moID'], observation['Phase'] 
             #calc asteroid colors, relative to g-band and with solar color subtracted
             #Cxg = mx - mg - (C(solar)x - C(solar)g)
             observation['Cug'] = observation['u'] - observation['g'] - solar_color_ug
@@ -238,6 +318,39 @@ while nRows >= nRowsMax:
             #observation['CGirErr'] = (observation['iErr']+observation['rErr'])*0.4/(i_wavelength-r_wavelength)
             #observation['CGziErr'] = (observation['zErr']+observation['iErr'])*0.4/(z_wavelength-i_wavelength)
             #
+            #this is for phase angle analysis (Carvano et al. 2015)
+            #color gradients based on r'
+            observation['Cur'] = observation['u'] - observation['r'] - solar_color_ur
+            observation['Cgr'] = observation['g'] - observation['r'] - solar_color_gr
+            observation['Crr'] = 0.0 #-solar_color_rr
+            observation['Cir'] = observation['i'] - observation['r'] - solar_color_ir
+            observation['Czr'] = observation['z'] - observation['r'] - solar_color_zr
+            #from the Carvano data, this is what it seems they are doing
+            observation['CurErr'] = observation['uErr']
+            observation['CgrErr'] = observation['gErr']
+            observation['CrrErr'] = observation['rErr']
+            observation['CirErr'] = observation['iErr']
+            observation['CzrErr'] = observation['zErr']          
+            #calc asteroid reflectance, relative to r-band
+            #Cxr = -2.5(logRx-logRr) = -2.5(log(Rx/Rr))
+            #Rx/Rr = 10^(-Cxr/2.5)
+            observation['Rur'] = pow(10,-observation['Cur']/2.5)
+            observation['Rgr'] = pow(10, -observation['Cgr']/2.5)
+            observation['Rrr'] = 1.0
+            observation['Rir'] = pow(10, -observation['Cir']/2.5)
+            observation['Rzr'] = pow(10, -observation['Czr']/2.5)
+            #calc slope and bd parameters from Carvano et al. 2015
+            #eq 1: Rir-Rgr/(lambdai-lambdag)
+            #eq 2: Rzr-Rir
+            observation['slope'] = (observation['Rir']-observation['Rgr'])/(i_wavelength-g_wavelength)
+            observation['bd'] = observation['Rzr'] - observation['Rir']
+            #calc asteroid log reflectance errors by propagating the Cxg errors
+            #observation['RurErr'] = ?
+            #observation['RgrErr'] = ?
+            #observation['RrrErr'] = ?
+            #observation['RirErr'] = ?
+            #observation['RzrErr'] = ?            
+            #
             asteroids[designation]['observations'].append(observation)
             #print asteroids[designation]
     skipRows += nRows
@@ -245,8 +358,11 @@ while nRows >= nRowsMax:
 print 'Read %d row(s).'%(skipRows)
 print 'Found %d asteroid(s).'%asteroid_count
 
+print 'Calculating taxonomic classes for each observation...'
+log_tax.write('%s,%s,%s,%s,%s,%s,%s,%s\n'%('designation', 'moid', 'phase', 'slope', 'bd', 'class', 'score', 'type'))
 for designation in asteroids:
     log.write('%s\n'%designation)
+    print 'Processing observations for %s...'%designation
     for observation in asteroids[designation]['observations']:
         log.write('\t%s\t%s\t\t%s\t\t%s\t\t%s\t\t%s\t\t%s\t\t%s\t\t%s\t\t%s\t\t%s\n'%('moID', 'LRug', 'LRugErr', 'LRgg', 'LRggErr', 'LRrg', 'LRrgErr', 'LRig', 'LRigErr', 'LRzg', 'LRzgErr'))
         log.write('\t%s\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\t%f\n'%(observation['moID'], observation['LRug'], observation['LRugErr'], observation['LRgg'], observation['LRggErr'], observation['LRrg'], observation['LRrgErr'], observation['LRig'], observation['LRigErr'], observation['LRzg'], observation['LRzgErr']))
@@ -257,67 +373,26 @@ for designation in asteroids:
         #for this observation, loop through the limits for each taxonomic type
         CG_cdf={}
         CG_cdf_sum = 0
+        log.write('\t%s\t%s\t\t%s\t\t%s\t\t%s\t\t%s\n'%('tax', 'score', 'scoregu', 'scorerg', 'scoreir', 'scorezi'))
         for taxclass in CG_limits: 
             CGgu_cdf = CGrg_cdf = CGir_cdf = CGzi_cdf = 0.0
             #create normal probability density functions for each color gradient, CG; mean is CG value and stddev is error; cdf = cumulative density function
             if observation['CGguErr'] > 0:
                 CGgu_cdf = stats.norm.cdf(CG_limits[taxclass]['CGguU'], loc=observation['CGgu'], scale=observation['CGguErr'])-stats.norm.cdf(CG_limits[taxclass]['CGguL'], loc=observation['CGgu'], scale=observation['CGguErr'])
-                cg='CGgu'
-                cg_err='CGguErr'
-                cg_cdf=CGgu_cdf
-                cg_color='red'
-                x = np.linspace(observation[cg]-3*observation[cg_err], observation[cg]+3*observation[cg_err], 100)
-                plt.plot(x, stats.norm.pdf(x, observation[cg], observation[cg_err]), color=cg_color)
-                #plt.axvline(observation[cg])
-                #plt.axvspan(observation[cg]-observation[cg_err], observation[cg]+observation[cg_err], alpha=0.2, color='red')
-                plt.axvspan(CG_limits[taxclass][cg+'L'], CG_limits[taxclass][cg+'U'], alpha=0.2, color=cg_color)
-                #plt.text(observation[cg], 0.0, '%s,%s=%f'%(taxclass, cg, cg_cdf))      
             #print observation['CGgu'], observation['CGguErr'], CG_limits[taxclass]['CGguL'], CG_limits[taxclass]['CGguU'], stats.norm.cdf(CG_limits[taxclass]['CGguL'], loc=observation['CGgu'], scale=observation['CGguErr']), stats.norm.cdf(CG_limits[taxclass]['CGguU'], loc=observation['CGgu'], scale=observation['CGguErr'])
             if observation['CGrgErr'] > 0:
                 CGrg_cdf = stats.norm.cdf(CG_limits[taxclass]['CGrgU'], loc=observation['CGrg'], scale=observation['CGrgErr'])-stats.norm.cdf(CG_limits[taxclass]['CGrgL'], loc=observation['CGrg'], scale=observation['CGrgErr'])
-                cg='CGrg'
-                cg_err='CGrgErr'
-                cg_cdf=CGrg_cdf
-                cg_color='green'
-                x = np.linspace(observation[cg]-3*observation[cg_err], observation[cg]+3*observation[cg_err], 100)
-                plt.plot(x, stats.norm.pdf(x, observation[cg], observation[cg_err]), color=cg_color)
-                #plt.axvline(observation[cg])
-                #plt.axvspan(observation[cg]-observation[cg_err], observation[cg]+observation[cg_err], alpha=0.2, color='red')
-                plt.axvspan(CG_limits[taxclass][cg+'L'], CG_limits[taxclass][cg+'U'], alpha=0.2, color=cg_color)
-                #plt.text(observation[cg], 0.0, '%s,%s=%f'%(taxclass, cg, cg_cdf)) 
             #print stats.norm.cdf(CG_limits[taxclass]['CGrgU'], loc=observation['CGrg'], scale=observation['CGrgErr']), stats.norm.cdf(CG_limits[taxclass]['CGrgL'], loc=observation['CGrg'], scale=observation['CGrgErr']) 
             if observation['CGirErr'] > 0:
                 CGir_cdf = stats.norm.cdf(CG_limits[taxclass]['CGirU'], loc=observation['CGir'], scale=observation['CGirErr'])-stats.norm.cdf(CG_limits[taxclass]['CGirL'], loc=observation['CGir'], scale=observation['CGirErr'])
-                cg='CGir'
-                cg_err='CGirErr'
-                cg_cdf=CGir_cdf
-                cg_color='blue'
-                x = np.linspace(observation[cg]-3*observation[cg_err], observation[cg]+3*observation[cg_err], 100)
-                plt.plot(x, stats.norm.pdf(x, observation[cg], observation[cg_err]), color=cg_color)
-                #plt.axvline(observation[cg])
-                #plt.axvspan(observation[cg]-observation[cg_err], observation[cg]+observation[cg_err], alpha=0.2, color='red')
-                plt.axvspan(CG_limits[taxclass][cg+'L'], CG_limits[taxclass][cg+'U'], alpha=0.2, color=cg_color)
-                #plt.text(observation[cg], 0.0, '%s,%s=%f'%(taxclass, cg, cg_cdf)) 
             #print stats.norm.cdf(CG_limits[taxclass]['CGirU'], loc=observation['CGir'], scale=observation['CGirErr']), stats.norm.cdf(CG_limits[taxclass]['CGirL'], loc=observation['CGir'], scale=observation['CGirErr'])
             if observation['CGziErr'] > 0:
                 CGzi_cdf = stats.norm.cdf(CG_limits[taxclass]['CGziU'], loc=observation['CGzi'], scale=observation['CGziErr'])-stats.norm.cdf(CG_limits[taxclass]['CGziL'], loc=observation['CGzi'], scale=observation['CGziErr'])                
-                CGir_cdf = stats.norm.cdf(CG_limits[taxclass]['CGirU'], loc=observation['CGir'], scale=observation['CGirErr'])-stats.norm.cdf(CG_limits[taxclass]['CGirL'], loc=observation['CGir'], scale=observation['CGirErr'])
-                cg='CGzi'
-                cg_err='CGziErr'
-                cg_cdf=CGzi_cdf
-                cg_color='brown'
-                x = np.linspace(observation[cg]-3*observation[cg_err], observation[cg]+3*observation[cg_err], 100)
-                plt.plot(x, stats.norm.pdf(x, observation[cg], observation[cg_err]), color=cg_color)
-                #plt.axvline(observation[cg])
-                #plt.axvspan(observation[cg]-observation[cg_err], observation[cg]+observation[cg_err], alpha=0.2, color='red')
-                plt.axvspan(CG_limits[taxclass][cg+'L'], CG_limits[taxclass][cg+'U'], alpha=0.2, color=cg_color)
-                #plt.text(observation[cg], 0.0, '%s,%s=%f'%(taxclass, cg, cg_cdf)) 
             #print stats.norm.cdf(CG_limits[taxclass]['CGziU'], loc=observation['CGzi'], scale=observation['CGziErr']), stats.norm.cdf(CG_limits[taxclass]['CGziL'], loc=observation['CGzi'], scale=observation['CGziErr'])                
             CG_cdf[taxclass] = CGgu_cdf * CGrg_cdf * CGir_cdf * CGzi_cdf
             CG_cdf_sum += CG_cdf[taxclass]
-            log.write('\t%s\t%s\t\t%s\t\t%s\t\t%s\t\t%s\n'%('tax', 'score', 'scoregu', 'scorerg', 'scoreir', 'scorezi'))
             log.write('\t%s\t%f\t%f\t%f\t%f\t%f\n'%(taxclass, CG_cdf[taxclass], CGgu_cdf, CGrg_cdf, CGir_cdf, CGzi_cdf))
-            plt.text(0, 0, '%s\t%s'%(observation['moID'],taxclass))
+            #plt.text(0, 0, '%s\t%s'%(observation['moID'],taxclass))
             #uncomment to show plots!
             #plt.show()    
         CG_cdf_max = 0.0
@@ -336,28 +411,91 @@ for designation in asteroids:
             except:
                 log.write('ERROR')
         if CG_cdf_sum > 0 and CG_cdf_max/CG_cdf_sum >= 0.6:
-            log_tax.write('%s\t%s\t%s\t%f\tsingle\n'%(designation, observation['moID'], CG_cdf_max_taxclass, CG_cdf_max))
+            #CGzi_ave = (CG_limits[CG_cdf_max_taxclass]['CGziU']+CG_limits[CG_cdf_max_taxclass]['CGziL'])/2.0
+            log_tax.write('%s,%s,%s,%f,%f,%s,%f,single\n'%(designation, observation['moID'], observation['Phase'], observation['slope'], observation['bd'], CG_cdf_max_taxclass, CG_cdf_max))
             log.write('\t%s\t%s\n'%('tax', 'score'))            
-            log.write('\t%s\t%f\n'%(CG_cdf_max_taxclass, CG_cdf_max)) 
+            log.write('\t%s\t%f\n'%(CG_cdf_max_taxclass, CG_cdf_max))
+            #save final tax and score
+            observation['class'] = CG_cdf_max_taxclass
+            observation['score'] = CG_cdf_max
         else:
             comboclass = ''
             combocount = 0
             comboscoresum = 0.0
             comboscore = 0.0
+            CGzi_ave = 0.0
             for taxclass in CG_cdf:
                 if CG_cdf_sum > 0 and CG_cdf[taxclass]/CG_cdf_sum >= 0.3:
                     comboclass += taxclass
                     combocount += 1
                     comboscoresum += CG_cdf[taxclass]
+                    CGzi_ave += (CG_limits[taxclass]['CGziU']+CG_limits[taxclass]['CGziL'])/2.0
             if combocount > 0:
                 comboscore = comboscoresum/combocount
-            log_tax.write('%s\t%s\t%s\t%f\tcombo\n'%(designation, observation['moID'], comboclass, comboscore)) 
+                CGzi_ave = CGzi_ave/combocount
+            else:
+                comboclass = 'U'
+            log_tax.write('%s,%s,%s,%f,%f,%s,%f,combo\n'%(designation, observation['moID'], observation['Phase'], observation['slope'], observation['bd'], comboclass, comboscore))
+            #log_tax.write('%s\t%s\t%s\t%s\t%f\tcombo\n'%(designation, observation['moID'], observation['Phase'], comboclass, comboscore)) 
             log.write('\tcombo\n')    
             log.write('\t%s\t%s\n'%('tax', 'score'))            
             log.write('\t%s\t%f\n'%(comboclass, comboscore))
+            #save final tax and score
+            observation['class'] = comboclass
+            observation['score'] = comboscore            
         log.write('\t***************************************\n')
+        
+#create dictionary to hold asteroid taxonomy counts and high scores
+#include U class too
+tax_classes = {}
+for key in CG_limits:
+    tax_classes[key] = {}
+tax_classes['U'] = {}
+    
+print 'Calculating final taxonomic classes for each asteroid...'
+for designation in asteroids:
+    #init this asteroid's counts and high scores
+    for key in tax_classes:
+        tax_classes[key]['count'] = 0
+        tax_classes[key]['high_score'] = 0.0 
+    pearson_rank_slope = None
+    pearson_rank_bd = None
+    if len(asteroids[designation]['observations']) > 2:
+        phase = []
+        slope = []
+        bd = []
+        for observation in asteroids[designation]['observations']:
+            phase.append(observation['Phase'])
+            slope.append(observation['slope'])
+            bd.append(observation['bd'])
+        #pearson_rank_slope = stats.pearsonr(phase, slope)
+        #pearson_rank_bd = stats.pearsonr(phase, bd)
+        #print pearson_rank_slope, pearson_rank_bd
+        
+    for observation in asteroids[designation]['observations']:
+        for tax_class in observation['class']:
+            tax_classes[tax_class]['count'] += 1
+            if observation['score'] > tax_classes[tax_class]['high_score']:
+                tax_classes[tax_class]['high_score'] = observation['score']
+        #print designation, observation['class'], tax_classes
+    max_count = 0
+    for key in tax_classes:
+        #print key, tax_classes[key]
+        if tax_classes[key]['count'] > max_count:
+            max_count = tax_classes[key]['count']
+    #print max_count        
+    max_high_score = 0
+    final_tax_class = ''
+    for key in tax_classes:
+        if tax_classes[key]['count'] == max_count:
+            final_tax_class += key
+            if tax_classes[key]['high_score'] > max_high_score:
+                max_high_score = tax_classes[key]['high_score']
+    log_tax_final.write('%s\t%s\t%f\n'%(designation, final_tax_class, max_high_score))        
+
 log.close()
 log_tax.close()
+log_tax_final.close()
 
 # 1     1 - 7     moID     Unique SDSS moving-object ID
 # 8     47 - 59     Time (MJD)     Modified Julian Day for the mean observation time  
