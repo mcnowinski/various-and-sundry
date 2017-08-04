@@ -34,11 +34,11 @@ def logme( str ):
 #input path *with* ending forward slash
 input_path='./'
 #output path *with* ending forward slash
-output_path='./cal/'
+output_path='./calibrated/'
 #log file name
 log_fname = 'log.calibrate.txt'
 #suffix for output files, if any...
-output_suffix='.cal'
+output_suffix='.calibrated'
 
 #used in master calibration filenames   
 date_suffix = datetime.datetime.now().strftime('%Y%m%d.%H%M%S')
@@ -209,7 +209,7 @@ for i in range(0,len(im)):
         #trim it, if necessary    
         #if(len(trim_range) > 0):
         #    flat = ccdproc.trim_image(flat, trim_range);
-        flat = ccdproc.subtract_bias(flat, bias, add_keyword=False)
+        #flat = ccdproc.subtract_bias(flat, bias, add_keyword=False)
         hdulist = flat.to_hdu()
         #add bias correction to header
         header=hdulist[0].header
@@ -304,16 +304,7 @@ for fits_file in fits_files:
     output_file = output_path+output_file
     #scale calibrated image back to int16, some FITS programs don't like float    
     hdulist = image.to_hdu()
-    ##bzero has to be non-zero, use int32 to handle negative values effectively
-    ##hdulist[0].scale('int32', bzero=1)
-    #hdulist[0].scale('int16', bzero=32768) 
-    #if there are negative values, we will need to adjust BZERO
-    b0 = 32768 #default BZERO
-    min_val = np.min(image.data) #min value in image data
-    #if min_val is negative, reduce BZERO accordingly
-    if min_val < 0:
-        b0 += min_val
-    hdulist[0].scale('int16', bzero=b0)    
+    #hdulist[0].scale('int16', bzero=32768)
     hdulist[0].header['BIASCORR'] = bias_master
     hdulist[0].header['DARKCORR'] = dark_master        
     hdulist[0].header['FLATCORR'] = flat_master

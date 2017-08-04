@@ -59,7 +59,7 @@ public class AstroImageProcessorLauncher
 		String path = System.getProperty("user.dir") + System.getProperty("file.separator") + "AstroImageProcessor.jar";
 		String[] errStatus = null;
 		try {
-			Runtime.getRuntime().exec("java -Xmx1024m -Xms512m -jar " + path );
+			Runtime.getRuntime().exec("java -Xmx1024m -Xms1024m -jar " + path );
 		} catch (IOException e) {
 			errStatus = new String[1];
 			errStatus[0] = e.getMessage();
