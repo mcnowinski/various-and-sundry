@@ -1,6 +1,7 @@
 import callhorizons
 import datetime
 import os
+import sys
 import subprocess
 import time
 from astropy import units as u
@@ -14,6 +15,9 @@ import re
 #run external process; track output, errors, and pid
 def runSubprocess(command_array):
     #command array is array with command and all required parameters
+    if debug:
+        logger.debug('DEBUG MODE IS ON! runSubprocess received "%s".'%command_array)
+        return    
     try:
         sp = subprocess.Popen(command_array, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
         logger.info('Running subprocess ("%s" %s)...'%(' '.join(command_array), sp.pid))
@@ -27,7 +31,7 @@ def runSubprocess(command_array):
         return ('', 'Unknown error.', 0)
 
 #send alert message to slack        
-def slackdebugalert(msg):
+def slackalert(msg):
     msg = datetime.datetime.utcnow().strftime('%m-%d-%Y %H:%M:%S ') + msg
     logger.debug(msg)
     (output, error, pid) = runSubprocess(['slackalert', msg])
@@ -40,11 +44,16 @@ def slackdebug(msg):
 
 #send preview of fits image to Slack    
 def slackpreview(fits):
-    (output, error, pid) = runSubprocess(['stiffy',fits, 'image.tif'])
+    (output, error, pid) = runSubprocess(['stiffy', fits, 'image.tif'])
     (output, error, pid) = runSubprocess(['convert', '-resize','50%', '-normalize', '-quality', '75', 'image.tif', 'image.jpg'])
     (output, error, pid) = runSubprocess(['slackpreview', 'image.jpg', fits])
     (output, error, pid) = runSubprocess(['rm', 'image.jpg', 'image.tif'])
 
+def squeezeit():
+    logger.info('Closing the observatory...')
+    (output, error, pid) = runSubprocess(['squeezeit']) 
+    sys.exit(1)
+    
 #check slit
 #if the slit is closed, alert the observer via Slack
 def checkSlit():
@@ -58,21 +67,41 @@ def checkSlit():
             slackalert('Slit has closed unexpectedly.')
             time.sleep(20)
     return True
- 
+
+#check slit
+#if the slit is closed, alert the observer via Slack
+def checkSun():
+    (output, error, pid) = runSubprocess(['sun'])
+    match = re.search('alt=([\\-\\+\\.0-9]+)', output)
+    if match:
+        alt = float(match.group(1))
+        logger.debug('Sun altitude is %s deg.'%alt)
+        if alt > max_sun_alt:
+            logger.info('Sun is too high (%s > %s deg).'%(alt, max_sun_alt))      
+            squeezeit()
+    else:
+        logger.error('Error. Could not determine the current altitude of the sun (%s).'%output)
+   
 #check clouds
 #if its too cloudy, wait it out...
-def checkClouds(max_clouds):
+def checkClouds(max_clouds_image):
     (output, error, pid) = runSubprocess(['tx','taux'])
     match = re.search('cloud=([\\-\\.0-9]+)', output)
     if match:
         clouds = float(match.group(1))
         logger.debug('Cloud cover is %d%%.'%int(clouds*100))
-        while clouds >= max_clouds:
-            slackalert('Too many clouds (%d%%).'%int(clouds*100))
+        if clouds >= max_clouds_slit:
+            logger.error('Too many clouds (%d%%). Aborting image sequence...'%int(clouds*100))
+            squeezeit()
+        while clouds >= max_clouds_image:
+            slackalert('Too many clouds (%d%%). Pausing image sequence...'%int(clouds*100))
             time.sleep(30)
             match = re.search('cloud=([\\-\\.0-9]+)', output)
             if match:
                 clouds = float(match.group(1))
+                if clouds >= max_clouds_slit:
+                    logger.error('Too many clouds (%d%%). Aborting image sequence...'%int(clouds*100))
+                    squeezeit()
                 logger.debug('Cloud cover is %d%%.'%int(clouds*100))
             else:
                 logger.error('Cloud command failed (%s).'%output)            
@@ -87,14 +116,15 @@ def checkClouds(max_clouds):
 #Some should eventually move to command line parameters or a config file... 
 #
 #the target
-target = '3867'
+target = '2017 MB1'
+#target = '2329'
 #move center of FOV (e.g. to avoid bright star)
-dRA = -0.1
+dRA = 0.0
 dDEC = 0.0
 #the observatory
 observatory = 'G52' #seo
 #exposure time in seconds
-t_exposure = 120
+t_exposure = 15
 #filter
 filter = 'clear'
 #binning
@@ -104,17 +134,27 @@ t_pointing = 40
 #user, hardcode for now
 user='mcnowinski'
 #max. cloud cover, 0-1
-max_clouds = 0.4
-
+max_clouds_image = 0.4
+max_clouds_slit = 0.8
+#min target elevation
+min_alt = 28.0
+#debug? set to 1
+debug = 0
+#max sun altitude
+max_sun_alt=-10
 
 #configure logging
-log_file='/home/mcnowinski/var/log/seo.log'
+log_file='/home/mcnowinski/var/log/astersnap.log'
 logger = logging.getLogger('astersnap')
 logger.setLevel(logging.DEBUG)
 handler = RotatingFileHandler(log_file, maxBytes=5*1024*1024, backupCount=10)
-handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+#handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+handler.setFormatter(logging.Formatter('%(asctime)s %(levelname)s\t%(message)s'))
 logger.addHandler(handler)
 logger.info('Starting astersnap...')
+
+if debug:
+    logger.info('Running in debug mode...')    
 
 #where is the asteroid going to be at the *midpoint* of the exposure?
 #first, calculate the *time* of the *midpoint* of the exposure: t = now + t_pointing (in sec) + t_exposure/2 (in sec)
@@ -141,15 +181,19 @@ else:
     logger.error('Error. Could not obtain ephemerides for target (%s).'%target)
     os.sys.exit(1)
     
-#ensure tracking is on, tx track on
-(output, error, pid) = runSubprocess(['tx','track','on'])
-
 #main loop
-#keep elevation above 25 deg
+#keep elevation above min_alt deg
 count = 0
-while float(ch['EL'][0]) > 25:
+while float(ch['EL'][0]) > min_alt:
     count += 1
 
+    #ensure tracking is on, tx track on
+    (output, error, pid) = runSubprocess(['tx','track','on'])    
+    
+    checkSun()
+    checkSlit()
+    checkClouds(max_clouds_image)    
+    
     #convert ra,dec from decimal degrees to hms and dms
     name=ch['targetname'][0]
     ra=Angle(float(ch['RA'][0])+dRA, u.degree).to_string(unit=u.hour, sep=':')
@@ -169,9 +213,6 @@ while float(ch['EL'][0]) > 25:
     #check the current telescope position
     (output, error, pid) = runSubprocess(['tx','where'])
     
-    checkSlit()
-    checkClouds(max_clouds)
-
     #get image
     fits = '%s_%s_%dsec_bin%d_%s_%s_num%d_seo.fits'%(name, filter, t_exposure, bin, user, datetime.datetime.utcnow().strftime('%Y%b%d_%Hh%Mm%Ss'), count)
     fits = fits.replace(' ', '_')
@@ -185,7 +226,7 @@ while float(ch['EL'][0]) > 25:
         slackpreview(fits)
         #IMAGE_PATHNAME=$STARS_IMAGE_PATH/`date -u +"%Y"`/`date -u +"%Y-%m-%d"`/${NAME}
         #(ssh -q -i $STARS_PRIVATE_KEY_PATH $STARS_USERNAME@$STARS_SERVER "mkdir -p $IMAGE_PATHNAME"; scp -q -i $STARS_PRIVATE_KEY_PATH $IMAGE_FILENAME $STARS_USERNAME@$STARS_SERVER:$IMAGE_PATHNAME/$IMAGE_FILENAME) &
-        (output, error, pid) = runSubprocess(['tostars','%s'%name.replace(' ', '_').replace('(', '').replace(')', ''),'%s'%fits])         
+        #(output, error, pid) = runSubprocess(['tostars','%s'%name.replace(' ', '_').replace('(', '').replace(')', ''),'%s'%fits])         
     else:
         slackdebug('Error. Image command failed (%s).'%fits) 
     #time.sleep(t_exposure+5)
@@ -202,6 +243,6 @@ while float(ch['EL'][0]) > 25:
     
 logger.info('Stopping astersnap...')
 
-#close up shop
-(output, error, pid) = runSubprocess(['squeezeit'])     
+##close up shop
+#(output, error, pid) = runSubprocess(['squeezeit'])     
     

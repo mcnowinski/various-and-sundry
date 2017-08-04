@@ -30,8 +30,8 @@ function point {
 	fi
 }
 
-checkSlit
-checkClouds
+#checkSlit
+#checkClouds
 
 if [ -t 0 ]; then
     point $*

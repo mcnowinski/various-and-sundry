@@ -9,6 +9,8 @@ import datetime
 import json
 import re
 import urllib2
+from StringIO import StringIO
+from zipfile import ZipFile
 import requests
 import subprocess
 from astropy.coordinates import SkyCoord, EarthLocation, AltAz, Angle, get_sun
@@ -50,11 +52,12 @@ def runSubprocess(command_array):
     #command array is array with command and all required parameters
     try:
         sp = subprocess.Popen(command_array, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
+        sp.wait()
         logme('Running subprocess ("%s" %s)...'%(' '.join(command_array), sp.pid))
         output, error = sp.communicate()    
         return (output, error, sp.pid)
     except:
-        logme('Error. Subprocess ("%s" %d) failed.'%(' '.join(command_array)))
+        logme('Error. Subprocess ("%s" %d) failed.'%(' '.join(command_array), sp.pid))
         return ('', '', 0)
 
 def doTest(command, user):
@@ -121,7 +124,8 @@ def getObservability(command, user):
     
     #calculate local time of observatory    
     #observatory_utc_offset = int(datetime.datetime.now(pytz.timezone(observatory_tz)).strftime('%z'))/100.0*u.hour 
-    observer_now = Time(datetime.datetime.utcnow(), scale='utc') # + observatory_utc_offset    
+    observer_now = Time(datetime.datetime.utcnow(), scale='utc') # + observatory_utc_offset
+    observer_now_sidereal = observer_now.sidereal_time('mean', observatory_lon*u.deg)
     
     #for celestial objects, this is easy peasy
     if object['type'] == 'Celestial':
@@ -129,7 +133,6 @@ def getObservability(command, user):
         #look 24 hours into the future
         delta_now = numpy.linspace(0, 24, 1000)*u.hour
         times_now_to_tomorrow = observer_now + delta_now
-        #prep to calc altaz
         frame_now_to_tomorrow = AltAz(obstime=times_now_to_tomorrow, location=object_observer)
         object_altaz_now_to_tomorrow = c.transform_to(frame_now_to_tomorrow)    
         sun_altaz_now_to_tomorrow = get_sun(times_now_to_tomorrow).transform_to(frame_now_to_tomorrow)
@@ -148,6 +151,30 @@ def getObservability(command, user):
         plt.ylim(0, 90)
         plt.xlabel('Hours [from now]')
         plt.ylabel('Altitude [deg]')
+        #plt.show()     
+        plt.savefig('plot.png', bbox_inches='tight') 
+        plt.close()
+        send_file('plot.png', 'Target (%s) Visibility'%object['name'])
+        #plt.plot(delta_now, sun_altaz_now_to_tomorrow.alt, color='r', label='Sun')
+        delta_now_ha = numpy.linspace(0, 24, 1000)*u.hourangle        
+        times_now_to_tomorrow_sidereal = observer_now_sidereal + delta_now_ha
+        #print times_now_to_tomorrow_sidereal
+        #for st in times_now_to_tomorrow_sidereal:
+        #    print (st-c.ra)*u.hour
+        plt.scatter(delta_now, (times_now_to_tomorrow_sidereal-c.ra).hour,
+                    c=object_altaz_now_to_tomorrow.az, label=object['name'], lw=0, s=8,
+                    cmap='viridis')
+        plt.fill_between(delta_now.to('hr').value, -24, 24,
+                         sun_altaz_now_to_tomorrow.alt < -0*u.deg, color='0.5', zorder=0)
+        plt.fill_between(delta_now.to('hr').value, -24, 24,
+                         sun_altaz_now_to_tomorrow.alt < -18*u.deg, color='k', zorder=0)
+        plt.colorbar().set_label('Azimuth [deg]')
+        plt.legend(loc='upper left')
+        plt.xlim(0, 24)
+        plt.xticks(numpy.arange(13)*2)
+        plt.ylim(-24, 24)
+        plt.xlabel('Hours [from now]')
+        plt.ylabel('Hour Angle [hours]')
         #plt.show()     
         plt.savefig('plot.png', bbox_inches='tight') 
         plt.close()
@@ -188,7 +215,7 @@ def getObservability(command, user):
         plt.close()
         send_file('plot.png', 'Target (%s) Visibility'%object['name'])
     elif object['type'] == 'Satellite':
-        print object['id'], object['tle_line1'], object['tle_line2']
+        #print object['id'], object['tle_line1'], object['tle_line2']
         sat_ephem = ephem.readtle(object['id'], object['tle_line1'], object['tle_line2'])
         #look 24 hours into the future
         delta_now = numpy.linspace(0, 24, 10000)*u.hour
@@ -206,7 +233,7 @@ def getObservability(command, user):
             az.append(math.degrees(float(repr(sat_ephem.az))))
             #lat = math.degrees(float(repr(sat_ephem.sublat)))
             #lon = math.degrees(float(repr(sat_ephem.sublong)))
-        print numpy.mean(alt)
+        #print numpy.mean(alt)
         plt.scatter(delta_now, alt,
                     c=az, label=object['name'], lw=0, s=8,
                     cmap='viridis')
@@ -239,10 +266,16 @@ def doCrack(command, user):
     (output, error, pid) = runSubprocess(['tin','interrupt']) 
     logme(output)
 
-    (output, error, pid) = runSubprocess(['openup','nocloud'])
+    #(output, error, pid) = runSubprocess(['openup','nocloud'])
+    (output, error, pid) = runSubprocess(['openup_nolock','nocloud'])
     logme(output)
 
-    (output, error, pid) = runSubprocess(['keepopen','maxtime=36000','slit'])
+    #(output, error, pid) = runSubprocess(['tx','slit', 'open'])
+    #logme(output)    
+    
+    #(output, error, pid) = runSubprocess(['killall','keepopen'])
+    #logme(output)
+    subprocess.call(['keepopen','maxtime=36000','slit'])
     logme(output)
 
     send_message("The observatory was successfully opened ('cracked')!")
@@ -276,7 +309,7 @@ def doImage(command, user):
         send_message('Please lock the telescope before calling this command.')
         return
 
-    match = re.search('^\\\\(image) ([0-9]+) (0|1|2|3|4) (u\\-band|g\\-band|r\\-band|i\\-band|z\\-band|clear|h\\-alpha)', command, re.IGNORECASE)
+    match = re.search('^\\\\(image) ([0-9\\.]+) (0|1|2|3|4) (u\\-band|g\\-band|r\\-band|i\\-band|z\\-band|clear|h\\-alpha)', command, re.IGNORECASE)
     if(match):
         exposure = match.group(2)
         binning = match.group(3)
@@ -333,7 +366,121 @@ def doTrack(command, user):
     else:
         logme('Error. Unexpected command format (%s).'%command)
         return
+
+def doPinpointByObjectNum(command, user): 
+    match = re.search('^\\\\(pinpoint)\\s?([0-9]+)?', command)
+    if(match):
+        if match.group(2):
+            object_index = int(match.group(2).strip())
+        else:
+            logme('No object index provided in \\pinpoint command. Choosing first object...')
+            object_index = 1
+    else:
+        logme('Error. Unexpected command format (%s).'%command)
+        return
+     
+    #this command requires that user has telescope locked
+    if not lockedByYou(user):
+        send_message('Please lock the telescope before calling this command.')
+        return    
+        
+    #slit should be open
+    if getSlit('',user) != 'open':
+        send_message('Slit is not open. Please run \\crack to open observatory.')
+        return
+     
+    #if we don't have any objects from \find, go home
+    if len(objects) <= 0:
+        send_message('Itzamna does not remember any objects. Please run `\\find <object>` to remind me.')
+        return
+    
+    #if specified index does not match our object list, go home
+    if object_index <= 0 or object_index > len(objects):
+        send_message('Itzamna only remembers %d object(s):'%len(objects))
+        report = ''
+        index = 1
+        #calculate local time of observatory    
+        object_observer_now = Time(datetime.datetime.utcnow(), scale='utc') # + object_observer_utc_offset 
+        for object in objects:
+            #create SkyCoord instance from RA and DEC
+            c = SkyCoord(object['RA'], object['DEC'], unit="deg")
+            #transform RA,DEC to alt, az for this object from the observatory
+            altaz = c.transform_to(AltAz(obstime=object_observer_now, location=object_observer))
+            ra = Angle('%fd'%object['RA']).to_string(unit=u.hour, sep=':')
+            dec = Angle('%fd'%object['DEC']).to_string(unit=u.degree, sep=':')
+            report += '%d.\t%s object (%s) found at RA=%s, DEC=%s, ALT=%f, AZ=%f.\n'%(index, object['type'], object['name'], ra, dec, altaz.alt.degree, altaz.az.degree)
+            index += 1
+        send_message(report)
+        return
+            
+    #select specific object from the find list
+    object = objects[object_index-1]
+
+    send_message('Itzamna is pinpointing the telescope to "%s". Please wait...'%object['name'])
+    logme('Pinpointing the telescope to %s (%d)...'%(object['name'],object_index)) 
+    
+    (output, error, pid) = runSubprocess(['tx','track','on'])    
+    #send_message(output)
+    if not re.search('done track ha\\=[0-9\\+\\-\\.]+\\sdec\\=[0-9\\+\\-\\.]+', output):
+        send_message('Error. Could not enable telescope tracking (%s).'%output)  
+        return
+    
+    ra = Angle('%fd'%object['RA']).to_string(unit=u.hour, sep=':')
+    dec = Angle('%fd'%object['DEC']).to_string(unit=u.degree, sep=':')
+    (output, error, pid) = runSubprocess(['pinpoint','%s'%ra,'%s'%dec])
+    #done point move=62.455 dist=0.0031
+    #send_message(output)
+    if not re.search('BAM', output):
+        send_message('Error. Could not pinpoint the telescope (%s).'%output)
+        return
+        
+    send_message('Telescope successfully pinpointed to "%s" (RA=%s, DEC=%s).'%(object['name'], ra, dec))
  
+def doPinpointByRaDec(command, user):
+    match = re.search('^\\\\(pinpoint) ([0-9\\:\\-\\+\\.]+) ([0-9\\:\\-\\+\\.]+)', command)
+    if(match):
+        ra = match.group(2)
+        dec = match.group(3)
+    else:
+        logme('Error. Unexpected command format (%s).'%command)
+        return
+        
+    #this command requires that user has telescope locked
+    if not lockedByYou(user):
+        send_message('Please lock the telescope before calling this command.')
+        return
+
+    #slit should be open
+    if getSlit('',user) != 'open':
+        send_message('Slit is not open. Please run \\crack to open observatory.')
+        return
+        
+    #ensure these are valid coordinates
+    try:
+        ra_decimal = Angle(ra + '  hours')
+        dec_decimal = Angle(dec + '  degrees')
+        #print ra_decimal, dec_decimal
+    except:
+        send_message('Invalid RA/DEC coordinates.')
+        return
+        
+    send_message('Itzamna is pinpointing the telescope. Please wait...')    
+        
+    (output, error, pid) = runSubprocess(['tx','track','on'])    
+    #send_message(output)
+    if not re.search('done track ha\\=[0-9\\+\\-\\.]+\\sdec\\=[0-9\\+\\-\\.]+', output):
+        send_message('Error. Could not enable telescope tracking (%s).'%output)  
+        return
+    
+    (output, error, pid) = runSubprocess(['pinpoint','%s'%ra,'%s'%dec])
+    #done point move=62.455 dist=0.0031
+    #send_message(output)
+    if not re.search('BAM', output):
+        send_message('Error. Could not pinpoint the telescope (%s).'%output)
+        return
+        
+    send_message('Telescope successfully pinpointed to RA=%s, DEC=%s.'%(ra,dec))
+        
 def doPointByObjectNum(command, user): 
     match = re.search('^\\\\(point)\\s?([0-9]+)?', command)
     if(match):
@@ -379,7 +526,7 @@ def doPointByObjectNum(command, user):
     object = objects[object_index-1]
 
     send_message('Itzamna is pointing the telescope to "%s". Please wait...'%object['name'])
-    logme('Pointing the telscope to %s (%d)...'%(object['name'],object_index)) 
+    logme('Pointing the telescope to %s (%d)...'%(object['name'],object_index)) 
     
     (output, error, pid) = runSubprocess(['tx','track','on'])    
     #send_message(output)
@@ -655,7 +802,7 @@ def lockedBy():
     (output, error, pid) = runSubprocess(['tx','lock'])
     #print output
     #done lock user=mcnowinski email=mcnowinski@gmail.com phone=7032869140 comment=slac timestamp=2017-02-10T20:32:03Z
-    match = re.search('^done lock user=([a-zA-Z]+) email=([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)', output)
+    match = re.search('^done lock user=(\S+) email=(\S+)', output)
     if(match):
         locked_by = (match.group(1), match.group(2))
         logme('Telescope is currently locked by %s (%s).'%(match.group(1),match.group(2)))
@@ -679,16 +826,21 @@ def doLock(command, user):
         send_message('The telescope is already locked by %s (%s)!'%(username,email))
         return False
     
+    #print user['profile']
+    
     username = user['name']
     email = user['profile']['email']
     #only grab numbers from phone number
     num = re.compile(r'[^\d]+')
-    phone = num.sub('', user['profile']['phone'])
+    try:
+        phone = num.sub('', user['profile']['phone'])
+    except:
+        phone = '0000000000'
     comment = 'itzamna'
     timestamp = datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
     
     (output, error, pid) = runSubprocess(['tx','lock','user=%s'%username,'email=%s'%email,'phone=%s'%phone,'comment=%s'%comment])
-    match = re.search('^done lock user=([a-zA-Z]+) email=([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)', output)
+    match = re.search('^done lock user=(\S+) email=(\S+)', output)
     if(match):
         send_message('Telescope successfully locked!')   
     else:
@@ -707,8 +859,8 @@ def doUnLock(command, user):
         return False
     #is telescope locked by us?
     if username != user['name']:
-        logme("Warning. Can't unlock the telescope. It's locked by someone else (%s)!"%locked_by)
-        send_message("Can't unlock the telescope. The telescope is locked by %s!"%locked_by)
+        logme("Warning. Can't unlock the telescope. The telescope is already locked by %s (%s)!'%(username,email))
+        send_message('The telescope is already locked by %s (%s)!'%(username,email))
         return False
         
     #clear the lock
@@ -723,16 +875,21 @@ def doUnLock(command, user):
 def getSlit(command, user):
     logme('Retrieving dome slit status...')  
     
+    status = 'unknown'
+    
     (output, error, pid) = runSubprocess(['tx','slit'])    
     #done slit slit=closed
     match = re.search('^done slit slit=([a-zA-Z]+)', output)
     if(match):
         send_message('Slit is %s.'%(match.group(1)))
         send_message('\n')
+        status = match.group(1)
     else:
         send_message('Error. Command (%s) did not return a valid response.'%command)
-        logme('Error. Command (%s) did not return a valid response (%s).'%(command,output))
-    
+        logme('Error. Command (%s) did not return a valid response (%s).'%(command,output))  
+        
+    return status
+        
 def getSun(command, user):
     logme('Retrieving current sun information...')      
 
@@ -874,6 +1031,7 @@ def getHelp(command, user=None):
                     '>`\\crack` opens the observatory\n' + \
                     '>`\\squeeze` closes the observatory\n' + \
                     '>`\\point <RA (hh:mm:ss.s)> <DEC (dd:mm:ss.s)>` or `\\point <object#>` points the telescope\n' + \
+                    '>`\\pinpoint <RA (hh:mm:ss.s)> <DEC (dd:mm:ss.s)>` or `\\pinpoint <object#>` pinpoints the telescope\n' + \
                     '>`\\image <exposure> <binning> <filter>` takes a picture\n' + \
                     '>`\\track <on/off>` toggles telescope tracking\n'                    
                 )
@@ -947,7 +1105,13 @@ def buildSatDatabase():
     global norad_sat_db
     for url in norad_sats_urls:
         #grab NORAD geosat data
-        sats = urllib2.urlopen(url).readlines()
+        match = re.search('zip$', url) 
+        #if it's a zipped file, unzip first!
+        if match:
+            zipfile = ZipFile(StringIO(urllib2.urlopen(url).read()))
+            sats = zipfile.open(zipfile.namelist()[0]).readlines();
+        else:
+            sats = urllib2.urlopen(url).readlines()
         #clean it up
         sats = [item.strip() for item in sats]
         #create an array of name, tle1, and tle2
@@ -1033,7 +1197,8 @@ welcome_giphy_url = 'http://www.nowinski.com/downloads/itzamna.gif'
 norad_sats_urls = [
 'http://www.celestrak.com/NORAD/elements/geo.txt',
 'http://www.celestrak.com/NORAD/elements/iridium.txt',
-'http://www.celestrak.com/NORAD/elements/iridium-NEXT.txt'
+'http://www.celestrak.com/NORAD/elements/iridium-NEXT.txt',
+'https://www.prismnet.com/~mmccants/tles/inttles.zip'
 ]
 image_path = '/home/mcnowinski/tmp/'
 ###############################
@@ -1060,10 +1225,12 @@ commands = [
 ['^\\\\(stats)', getStats],
 ['^\\\\(point) ([0-9\\:\\-\\+\\.]+) ([0-9\\:\\-\\+\\.]+)', doPointByRaDec],
 ['^\\\\(point)\\s?([0-9]+)?', doPointByObjectNum],
+['^\\\\(pinpoint) ([0-9\\:\\-\\+\\.]+) ([0-9\\:\\-\\+\\.]+)', doPinpointByRaDec],
+['^\\\\(pinpoint)\\s?([0-9]+)?', doPinpointByObjectNum],
 ['^\\\\(track) (on|off)', doTrack],
 ['^\\\\(crack)', doCrack],
 ['^\\\\(squeeze)', doSqueeze],
-['^\\\\(image) ([0-9]+) (0|1|2|3|4) (u\\-band|g\\-band|r\\-band|i\\-band|z\\-band|clear|h\\-alpha)', doImage],
+['^\\\\(image) ([0-9\\.]+) (0|1|2|3|4) (u\\-band|g\\-band|r\\-band|i\\-band|z\\-band|clear|h\\-alpha)', doImage],
 ['^\\\\(lock)', doLock],
 ['^\\\\(unlock)', doUnLock]
  

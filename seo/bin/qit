@@ -1,0 +1,20 @@
+#!/bin/bash
+
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+source $DIR/utils
+
+#wait for certain time
+wait4time 08:45
+#wait4target $RA1 $DEC1 $MIN_ALT1
+
+##open observatory
+#if [ $? -eq 0 ]; then
+crackit
+#else
+#    alert "Error. Waitfor script failed."
+#fi
+
+/home/mcnowinski/anaconda2/bin/python /home/mcnowinski/giterdone/seo/bin/astersnap.py
+
+#squeezeit

@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/bin/bash -f
+#use -f to prevent glob expansion
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
@@ -12,8 +13,15 @@ if [ $# -ne 2 ]; then
     exit 1
 fi
 
+#all but last
+#SRC=${@:1:$#-1}
 SRC=$1
+#last item
+#bDEST=${@: -1}
 DEST=$2
+
+#re-enable globbing
+set +f
 
 FILE_COUNT=`ls -1q ${SRC} | wc -l`
 if [ $FILE_COUNT -eq 0 ]; then
@@ -21,7 +29,7 @@ if [ $FILE_COUNT -eq 0 ]; then
     exit 1
 fi
 
-alert "Copying ${FILE_COUNT} image(s) to stars.uchicago.edu (${DEST})..."
+debug "Copying ${FILE_COUNT} image(s) to stars.uchicago.edu (${DEST})..."
 
 #copy new image to STARS server, i.e. stars.uchicago.edu
 #ensure ssh keys are already set up!
@@ -31,7 +39,7 @@ ssh -q -i $STARS_PRIVATE_KEY_PATH $STARS_USERNAME@$STARS_SERVER "mkdir -p ${DEST
 scp -q -i $STARS_PRIVATE_KEY_PATH ${SRC} $STARS_USERNAME@$STARS_SERVER:${DEST}/
 
 if [ $? -eq 0 ]; then
-    alert "Image transfer to stars.uchicago.edu is complete."
+    debug "Image transfer to stars.uchicago.edu is complete."
 else
     alert "Error. Image transfer to stars.uchicago.edu failed."
 fi

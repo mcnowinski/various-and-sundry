@@ -21,11 +21,18 @@ NAME=dark
 USER=mcnowinski
 FILTER=clear
 
+#TOSTARS_FILE_LIST=input_`date -u +"%Y%b%d_%Hh%Mm%Ss"`
+##create list of files for input to to stars
+#touch $TOSTARS_FILE_LIST
+
 #not really necessary, but why not
 pfilter clear
 
 #assign stars server destination pathname
 IMAGE_PATHNAME=$STARS_IMAGE_PATH/`date -u +"%Y"`/`date -u +"%Y-%m-%d"`/${NAME}
+
+#generate 8-character unique hash for this run
+UNIQUE_HASH=`cat /dev/urandom | tr -dc 'a-zA-Z0-9' | head -c 8`
 
 #get darks; use same exposure as for images
 alert "Taking $NUM_DARKS dark frame(s) (bin=$BINNING, time=$EXPOSURE_SEC)..."
@@ -33,12 +40,13 @@ alert "Taking $NUM_DARKS dark frame(s) (bin=$BINNING, time=$EXPOSURE_SEC)..."
 #check ccd status before starting
 checkCCDTemp
 for (( i=1; i<=$NUM_DARKS; i++ )); do
-  IMAGE_FILENAME=${NAME}_${FILTER}_${EXPOSURE_SEC}sec_bin${BINNING}_${USER}_`date -u +"%Y%b%d_%Hh%Mm%Ss"`_num`printf "%04d" $COUNT`_seo.fits
+  IMAGE_FILENAME=${NAME}_${FILTER}_${EXPOSURE_SEC}sec_bin${BINNING}_${USER}_`date -u +"%Y%b%d_%Hh%Mm%Ss"`_num`printf "%04d" $COUNT`_${UNIQUE_HASH}_seo.fits
   getImage $EXPOSURE_SEC $BINNING $IMAGE_FILENAME dark
   #getImage $EXPOSURE_SEC $BINNING `date -u +"%Y%m%d.%H%M%S%3N"`.`printf "%03d" $COUNT`.dark.$BINNING.$EXPOSURE_SEC.fits dark
   if [ $SUCCESS -eq 1 ]
   then
     COUNT=$((COUNT+1))
+    #echo $IMAGE_FILENAME >> $TOSTARS_FILE_LIST
   fi
 done
 
@@ -48,5 +56,5 @@ alert "Dark frame sequence complete. Obtained $COUNT dark frame(s)."
 #ensure ssh keys are already set up!
 #ensure image target folder exists
 #IMAGE_PATHNAME=$STARS_IMAGE_PATH/`date -u +"%Y"`/`date -u +"%Y-%m-%d"`/${NAME}
-tostars './*.fits' $IMAGE_PATHNAME &
+tostars ./\*${UNIQUE_HASH}_seo.fits $IMAGE_PATHNAME &
 

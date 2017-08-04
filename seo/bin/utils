@@ -77,13 +77,6 @@ function checkSlit {
   	echo "Slit is open." > /dev/null
   else
 	alert "Slit closed unexpectedly."
-	#closedown
-	#exit 1
-	#while true
-	#do
-	#	alert "Slit closed unexpectedly."
-	#	sleep 60
-	#done
 	COUNTER=0
 	while [  $COUNTER -lt $NUM_ALERTS ]; do
 		let COUNTER=COUNTER+1 
@@ -93,6 +86,7 @@ function checkSlit {
 	alert "Slit closed unexpectedly. Closing down observatory..."
 	squeezeit
 	alert "Slit closed unexpectedly. Observatory closed."
+    exit 1
   fi
 }
 
@@ -103,37 +97,39 @@ function checkAlt {
   if [ ${ALT%.*} -lt ${MINIMUM_ALT%.*} ]
   then
  	alert "Telescope altitude ($ALT deg) too low (< $MINIMUM_ALT deg). Closing observatory..."
-	#closedown
-	#exit 1
     squeezeit
-	#while true
-	#do
-	#	alert "Altitude of telescope ($ALT) too low. Observatory closed."
-	#	sleep 60
-	#done
+    exit 1
   fi
 }
 
-MINIMUM_ALT_TARGET=29
+MAXIMUM_ALT_SUN=-5
+#check to be sun altitude is within limits
+function checkAltSun {
+  local ALT=`sun | grep -o 'alt=[0-9\.]\+' | cut -c5-`
+  if [ ${ALT%.*} -gt ${MAXIMUM_ALT_SUN%.*} ]
+  then
+ 	alert "Sun altitude ($ALT deg) too high (> $MAXIMUM_ALT_SUN deg). Closing observatory..."
+    squeezeit
+    exit 1
+  fi
+}
+
+MIN_ALT=29
+MIN_HA=-85
+MAX_HA=85
 #check to be sure the the target is within limits
 #$1 is RA, $2 is DEC
 function checkAltTarget {
   local ALT=`echo $1 $2 2000 | altaz | grep -o 'alt=[0-9+\.\-]\+' | cut -c5-`
-  if [ ${ALT%.*} -lt ${MINIMUM_ALT_TARGET%.*} ]
+  local HA=`echo $1 $2 2000 | altaz | grep -o 'ha=[0-9+\.\-]\+' | cut -c4-`
+  if [ ${ALT%.*} -lt ${MIN_ALT%.*} ] || [ ${HA%.*} -lt ${MIN_HA%.*} ] || [ ${HA%.*} -gt ${MAX_HA%.*} ]
   then
- 	alert "Target ($1 $2) altitude too low ($ALT < $MINIMUM_ALT_TARGET deg). Pausing image sequence..."
-	while [ ${ALT%.*} -lt ${MINIMUM_ALT_TARGET%.*} ]
-	do
-		debug "Target altitude is $ALT deg."
-		sleep 60
-		#checkSlit
-        checkAlt
-		ALT=`echo $1 $2 2000 | altaz | grep -o 'alt=[0-9+\.\-]\+' | cut -c5-`		
-	done
-  fi
+    debug "Target is not observable (ALT=${ALT} deg, HA=${HA} deg). Aborting script..."
+    SUCCESS=0
+  fi 
 }
 
-MAXIMUM_CLOUDS_IMAGE=30
+MAXIMUM_CLOUDS_IMAGE=45
 MAXIMUM_CLOUDS_SLIT=80
 #check to be sure cloud cover is not too thick
 function checkClouds {
@@ -141,10 +137,13 @@ function checkClouds {
   local CLOUD_PCT=$(expr $CLOUDS*100 | bc)
   if [ ${CLOUD_PCT%.*} -gt ${MAXIMUM_CLOUDS_SLIT%.*} ]
   then
- 	alert "Too many clouds (${CLOUD_PCT%.*}%). Closing slit..."
+ 	alert "Too many clouds (${CLOUD_PCT%.*}%). Closing observatory..."
 	#squeezeit
 	#exit 1
-    tx slit close
+    #tx slit close
+    squeezeit
+    SUCCESS=0
+    return 1
   fi
   if [ ${CLOUD_PCT%.*} -gt ${MAXIMUM_CLOUDS_IMAGE%.*} ]
   then
@@ -155,10 +154,13 @@ function checkClouds {
 	do
 		if [ ${CLOUD_PCT%.*} -gt ${MAXIMUM_CLOUDS_SLIT%.*} ]
 		then
-			alert "Too many clouds (${CLOUD_PCT%.*}%). Closing slit..."
-			#squeezeit
-			#exit 1
-            tx slit close
+			alert "Too many clouds (${CLOUD_PCT%.*}%). Closing observatory..."
+            #squeezeit
+            #exit 1
+            #tx slit close
+            squeezeit
+            SUCCESS=0
+            return 1
 		fi	
 		debug "Cloud cover is ${CLOUD_PCT%.*}%."
 		sleep 60

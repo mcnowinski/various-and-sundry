@@ -1,0 +1,81 @@
+#!/bin/bash
+
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+source $DIR/utils
+
+MAX_SUN_ALT=-10
+function sunIsNotUp {
+  local SUN_ALT=`sun | grep -o 'alt=[0-9\.\-]\+' | cut -c5-`
+  if [ ${SUN_ALT%.*} -gt ${MAX_SUN_ALT%.*} ]
+  then
+    #debug "Sun is UP. Altitude is $SUN_ALT deg."
+    return 1
+  else
+    #debug "Sun altitude is $SUN_ALT deg."
+    return 0
+  fi
+}
+
+#RA=18:51.0
+#DEC=-06:16
+#NUM=360
+#EXP=15
+#BIN=1
+#FILTERS=g-band,r-band
+#MIN_ALT=30
+#NAME=M11
+
+RA1=22:08:34.8818
+DEC1=62:06:18.416
+NUM1=1
+EXP1=45
+BIN1=1
+FILTERS1=g-band,r-band
+MIN_ALT1=30
+NAME1=2MASSJ22083487_6206184
+
+RA2=19:02:04.89 
+DEC2=-16:31:24.9
+NUM2=10
+EXP2=120
+BIN2=2
+FILTERS2=clear
+MIN_ALT2=30
+NAME2=9147Kourakuen
+
+#wait for certain time
+#wait4time 07:15
+wait4target $RA1 $DEC1 $MIN_ALT1
+
+#open observatory
+if [ $? -eq 0 ]; then
+    crackit
+else
+    alert "Error. Waitfor script failed."
+fi
+
+while sunIsNotUp
+do
+    #take images
+    iloop $NUM1 $EXP1 $BIN1 $FILTERS1 $RA1 $DEC1 $NAME1
+    #if there is a fatal error, shut this guy down
+    if [ $? -eq 1 ]; then
+        squeezeit
+        exit 1
+    fi
+    iloop $NUM2 $EXP2 $BIN2 $FILTERS2 $RA2 $DEC2 $NAME2
+    #if there is a fatal error, shut this guy down
+    RESULT=$?
+    if [ $RESULT -eq 1 ]; then
+        squeezeit
+        exit 1
+    fi
+    #if the asteroid is not available, wait for 5
+    if [ $RESULT -ne 0 ]; then
+        debug "Pausing observations for 15 minutes..."
+        sleep 900   
+    fi    
+done
+
+squeezeit
