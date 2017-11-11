@@ -2,9 +2,9 @@
 #parameter is $1=message, e.g. alert "This is a test!"
 function alert {
     local MESSAGE="`date -u +"%m-%d-%Y %H:%M:%S"` $1"
-    slackalert "$MESSAGE"
+    slackalert "$MESSAGE" &
     #echo $MESSAGE
-    debug "$1"
+    debug "$1" &
 }
 
 #upload image to Slack #seo9001 channel
@@ -19,7 +19,7 @@ function preview {
 #parameter is $1=message, e.g. debug "This is a test!"
 function debug {
     local MESSAGE="`date -u +"%m-%d-%Y %H:%M:%S"` $1"
-    slackdebug "$MESSAGE"
+    slackdebug "$MESSAGE" &
     echo $MESSAGE
 }
 
@@ -115,8 +115,8 @@ function checkAltSun {
 }
 
 MIN_ALT=29
-MIN_HA=-85
-MAX_HA=85
+MIN_HA=-80
+MAX_HA=80
 #check to be sure the the target is within limits
 #$1 is RA, $2 is DEC
 function checkAltTarget {
@@ -129,7 +129,7 @@ function checkAltTarget {
   fi 
 }
 
-MAXIMUM_CLOUDS_IMAGE=45
+MAXIMUM_CLOUDS_IMAGE=50
 MAXIMUM_CLOUDS_SLIT=80
 #check to be sure cloud cover is not too thick
 function checkClouds {
@@ -166,9 +166,20 @@ function checkClouds {
 		sleep 60
 		#checkSlit
         checkAlt
+        checkAltSun
 		CLOUDS=`tx taux | grep -o 'cloud=[0-9\.\+\-]\+' | cut -c7-`
 		CLOUD_PCT=$(expr $CLOUDS*100 | bc)		
 	done
     tx slit open
+  fi
+}
+
+MAX_SUN_ALT=-10
+function checkSun {
+  local SUN_ALT=`sun | grep -o 'alt=[0-9\.\-]\+' | cut -c5-`
+  if [ ${SUN_ALT%.*} -gt ${MAX_SUN_ALT%.*} ]
+  then
+    debug "Sun is UP. Altitude is $SUN_ALT deg."
+    SUCCESS=0
   fi
 }

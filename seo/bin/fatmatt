@@ -44,7 +44,7 @@ set sunalt=-1
 
 tx lock user=$observer email=mcnowinski@gmail.com phone=7032869140 comment=fatflats 
 
-set msg="Taking *fat* dusk flat frames..."
+set msg="Taking 'fat' dusk flat frames..."
 set MESSAGE=`date -u +"%m-%d-%Y %H:%M:%S "`
 set MESSAGE="$MESSAGE $msg"
 slackalert "$MESSAGE"

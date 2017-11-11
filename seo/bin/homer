@@ -13,6 +13,7 @@ alert "Calibrating DEC drive.."
 tx home dec
 
 alert "Calibrating DOME drive..."
+tx home domer
 tx home domel
 
 alert "Telescope control system calibration complete."

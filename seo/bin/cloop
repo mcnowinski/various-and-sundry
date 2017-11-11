@@ -18,6 +18,8 @@ fi
 #echo $IMAGEPATH
 #exit 1
 
+tx lock user=mcnowinski email=mcnowinski@gmail.com phone=7032869140 comment=domebiasdarks
+
 alert "Telescope calibration sequence started."
 
 #calibrate telescope control system
@@ -76,5 +78,7 @@ bloop $NUMBIAS 2
 cd $DARKPATH
 dloop $NUMDARK $EXPDARK 1
 dloop $NUMDARK $EXPDARK 2
+
+tx lock clear
 
 alert "Telescope calibration sequence complete."

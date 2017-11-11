@@ -66,6 +66,7 @@ for (( k=1; k<=$NUM_IMAGES; k++ )); do
     do
       SUCCESS=1
       #checkCCDTemp
+      checkSun
       checkSlit
       checkAlt
       checkClouds

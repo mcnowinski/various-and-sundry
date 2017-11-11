@@ -18,7 +18,7 @@ fi
 #echo $IMAGEPATH
 #exit 1
 
-alert "Telescope calibration sequence started."
+alert "Telescope calibration sequence (long darks) started."
 
 #calibrate telescope control system
 homer
@@ -77,9 +77,9 @@ cd $DARKPATH
 dloop 10 120 1
 dloop 10 120 2
 #the long ones
-dloop 5 300 1
-dloop 5 600 1
-dloop 5 900 1
+#dloop 5 300 1
+#dloop 5 600 1
+#dloop 5 900 1
 dloop 5 1200 1
 
 alert "Telescope calibration sequence complete."

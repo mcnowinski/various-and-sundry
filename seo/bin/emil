@@ -17,15 +17,15 @@ function sunIsNotUp {
   fi
 }
 
-RA1=0:56:25.9999
-DEC1=23:03:11.9988
+RA1=1:05:18.69
+DEC1=63:21:24.5988
 NUM1=1
-EXP1=30
-BIN1=1
-FILTERS1=g-band,r-band
+EXP1=70
+BIN1=2
+FILTERS1=g-band,r-band,i-band
 MIN_ALT1=29
-NAME1=NSV349
-WAIT4TIME=7:45
+NAME1=V552Cas
+WAIT4TIME=7:15
 DELAY_S=0
 
 #wait for certain time

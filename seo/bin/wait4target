@@ -13,8 +13,8 @@ fi
 RA=$1
 DEC=$2
 MIN_ALT=$3
-MIN_HA=-85
-MAX_HA=85
+MIN_HA=-80
+MAX_HA=80
 
 #MINIMUM_ALT_TARGET=29
 ##check to be sure the the target is within limits
