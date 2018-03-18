@@ -309,11 +309,11 @@ for fits_file in fits_files:
     #hdulist[0].scale('int16', bzero=32768) 
     #if there are negative values, we will need to adjust BZERO
     b0 = 32768 #default BZERO
-    min_val = np.min(image.data) #min value in image data
-    #if min_val is negative, reduce BZERO accordingly
-    if min_val < 0:
-        b0 += min_val
-    hdulist[0].scale('int16', bzero=b0)    
+    #min_val = np.min(image.data) #min value in image data
+    ##if min_val is negative, reduce BZERO accordingly
+    #if min_val < 0:
+    #    b0 += min_val
+    hdulist[0].scale('int32', bzero=1)    
     hdulist[0].header['BIASCORR'] = bias_master
     hdulist[0].header['DARKCORR'] = dark_master        
     hdulist[0].header['FLATCORR'] = flat_master

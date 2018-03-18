@@ -144,8 +144,11 @@ public class JourneyToMars extends JFrame implements ActionListener, ChangeListe
 		LocalDateTime dt = Mission.startDt.plusDays(Math.round(mission.getDay()));
 		dataText.setText(
 				"Day = " + mission.getDay() + " = " + dt.format(DateTimeFormatter.ofPattern("MM/dd/yyyy")) + "\n" +
-				"dAng = " + String.format("%.2f", Math.toDegrees(mission.getEarthMarsAngle())) + " deg\n" +
-				"dD = " + String.format("%.3f", mission.getEarthMarsDistance()) + " AU\n" +					
+				//"dAng = " + String.format("%.2f", Math.toDegrees(mission.getEarthMarsAngle())) + " deg\n" +
+				"d (Earth-Mars) = " + String.format("%.3f", mission.getEarthMarsDistance()) + " AU\n" +
+				"d (Earth-Spaceship) = " + String.format("%.3f", mission.getEarthSpaceshipDistance()) + " AU\n" +
+				"d (Mars-Spaceship) = " + String.format("%.3f", mission.getMarsSpaceshipDistance()) + " AU\n" +
+				"d (Sun-Spaceship) = " + String.format("%.3f", mission.getSunSpaceshipDistance()) + " AU\n" + 
 				"\nEarth:\n" +
 				"a, e = " + String.format("%.3f", mission.getEarth().getSemimajorAxis()) + " AU, " + String.format("%.3f", mission.getEarth().getEccentricity()) + "\n" +	
 				"T = " + String.format("%.3f", mission.getEarth().getPeriod()) + " years, " +	String.format("%.1f", mission.getEarth().getPeriod()*365.0) + " days\n" +					
@@ -158,12 +161,12 @@ public class JourneyToMars extends JFrame implements ActionListener, ChangeListe
 				"V = " + String.format("%.2f", mission.getMars().getVelocity(mission.getDay())/1000.0) + " km/s\n"	+
 				"\nEarth to Mars:\n" +				
 				"a, e = " + String.format("%.3f", mission.getEarth2Mars().getSemimajorAxis()) + " AU, " + String.format("%.3f", mission.getEarth2Mars().getEccentricity()) + "\n" +	
-				"T = " + String.format("%.3f", mission.getEarth2Mars().getPeriod()) + " years, " +	String.format("%.1f", mission.getEarth2Mars().getPeriod()*365.0) + " days\n" +
+				//"T = " + String.format("%.3f", mission.getEarth2Mars().getPeriod()) + " years, " +	String.format("%.1f", mission.getEarth2Mars().getPeriod()*365.0) + " days\n" +
 				earth2MarsLegs +
 				"Dep/Arr Days = " + (mission.getDepartureDay() >= 0 ? String.format("%.1f", mission.getDepartureDay()) : "?") + "/" + (mission.getEarth2Mars().getDestinationArrivalDay() >= 0 ? String.format("%.1f", mission.getEarth2Mars().getDestinationArrivalDay()) : "?") + "\n" + 
 				"\nMars to Earth:\n" +				
 				"a, e = " + String.format("%.3f", mission.getMars2Earth().getSemimajorAxis()) + " AU, " + String.format("%.3f", mission.getMars2Earth().getEccentricity()) + "\n" +	
-				"T = " + String.format("%.3f", mission.getMars2Earth().getPeriod()) + " years, " +	String.format("%.1f", mission.getMars2Earth().getPeriod()*365.0) + " days\n" +		
+				//"T = " + String.format("%.3f", mission.getMars2Earth().getPeriod()) + " years, " +	String.format("%.1f", mission.getMars2Earth().getPeriod()*365.0) + " days\n" +		
 				mars2EarthLegs + 
 				"Dep/Arr Days = " + (mission.getReturnDay() >= 0 ? String.format("%.1f", mission.getReturnDay()) : "?") + "/" + (mission.getMars2Earth().getDestinationArrivalDay() >= 0 ? String.format("%.1f", mission.getMars2Earth().getDestinationArrivalDay()) : "?") + "\n"
 				);

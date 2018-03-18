@@ -114,6 +114,81 @@ public class Mission extends JPanel {
 	//
 	//	
 	
+	//get distance between in Earth and spacehip in AU
+	public double getEarthSpaceshipDistance() {
+		double distance = 0.0;	
+		
+		Position earthPos = getEarth().getPositionAt(getDay());
+		
+		double spaceshipDay = day;
+    	if(getReturnDay() >= 0 && day >= getReturnDay()) {
+    		if(mars2Earth.getDestinationArrivalDay() >= 0 && day >= mars2Earth.getDestinationArrivalDay()) {
+    		} else {
+	    		spaceshipDay = day - getReturnDay() + mars2Earth.getPeriod()/2.0*365.0;
+    		}     		
+    	} else if(getDepartureDay() >= 0 && day >= getDepartureDay()) {
+    		if(earth2Mars.getDestinationArrivalDay() >= 0 && day >= earth2Mars.getDestinationArrivalDay()) {
+    		} else {
+	    		spaceshipDay = day - getDepartureDay();
+    		}
+    	}
+		Position spaceshipPos = getSpaceship().getPositionAt(spaceshipDay);		
+		
+		distance = earthPos.getDistanceTo(spaceshipPos);
+		
+		return distance;
+	}	
+
+	//get distance between in Earth and spacehip in AU
+	public double getMarsSpaceshipDistance() {
+		double distance = 0.0;	
+		
+		Position marsPos = getMars().getPositionAt(getDay());
+		
+		double spaceshipDay = day;
+    	if(getReturnDay() >= 0 && day >= getReturnDay()) {
+    		if(mars2Earth.getDestinationArrivalDay() >= 0 && day >= mars2Earth.getDestinationArrivalDay()) {
+    		} else {
+	    		spaceshipDay = day - getReturnDay() + mars2Earth.getPeriod()/2.0*365.0;
+    		}     		
+    	} else if(getDepartureDay() >= 0 && day >= getDepartureDay()) {
+    		if(earth2Mars.getDestinationArrivalDay() >= 0 && day >= earth2Mars.getDestinationArrivalDay()) {
+    		} else {
+	    		spaceshipDay = day - getDepartureDay();
+    		}
+    	}
+		Position spaceshipPos = getSpaceship().getPositionAt(spaceshipDay);		
+		
+		distance = marsPos.getDistanceTo(spaceshipPos);
+		
+		return distance;
+	}
+	
+	//get distance between in Earth and spacehip in AU
+	public double getSunSpaceshipDistance() {
+		double distance = 0.0;	
+		
+		Position sunPos = new Position(0, 0, 0, 0);
+		
+		double spaceshipDay = day;
+    	if(getReturnDay() >= 0 && day >= getReturnDay()) {
+    		if(mars2Earth.getDestinationArrivalDay() >= 0 && day >= mars2Earth.getDestinationArrivalDay()) {
+    		} else {
+	    		spaceshipDay = day - getReturnDay() + mars2Earth.getPeriod()/2.0*365.0;
+    		}     		
+    	} else if(getDepartureDay() >= 0 && day >= getDepartureDay()) {
+    		if(earth2Mars.getDestinationArrivalDay() >= 0 && day >= earth2Mars.getDestinationArrivalDay()) {
+    		} else {
+	    		spaceshipDay = day - getDepartureDay();
+    		}
+    	}
+		Position spaceshipPos = getSpaceship().getPositionAt(spaceshipDay);		
+		
+		distance = sunPos.getDistanceTo(spaceshipPos);
+		
+		return distance;
+	}	
+	
     public Orbit getEarth() {
     	return earth;
     }
@@ -129,6 +204,24 @@ public class Mission extends JPanel {
     public Orbit getEarth2Mars() {
     	return earth2Mars;
     } 	
+    
+    //orbit of spaceship depends on rendezvous
+    public Orbit getSpaceship() {
+    	if(getReturnDay() >= 0 && day >= getReturnDay()) {
+    		if(mars2Earth.getDestinationArrivalDay() >= 0 && day >= mars2Earth.getDestinationArrivalDay()) {
+    			return earth;
+    		} else {
+    			return mars2Earth;
+    		}     		
+    	} else if(getDepartureDay() >= 0 && day >= getDepartureDay()) {
+    		if(earth2Mars.getDestinationArrivalDay() >= 0 && day >= earth2Mars.getDestinationArrivalDay()) {
+    			return mars;
+    		} else {
+	    		return earth2Mars;
+    		}
+    	}
+    	return earth; //default
+    }
 		
     public void setShowEarth2Mars(boolean show) {
     	showEarth2Mars = show;

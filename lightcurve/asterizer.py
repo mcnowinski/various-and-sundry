@@ -1,4 +1,5 @@
 import os
+import stat
 import glob
 import math
 import subprocess
@@ -9,6 +10,7 @@ from decimal import Decimal
 from astropy.io import fits
 from astropy import wcs
 from dateutil import parser
+import numpy
 
 def logme( str ):
    log.write(str + "\n")
@@ -174,17 +176,20 @@ for new in sorted(im):
     output_file = output_path+output_file
     logme("Writing solution to "+output_file)
     os.system('mv %s.new %s'%(new.rsplit('.',1)[0],output_file))
-    
     count += 1
     
     #remove COMMENT and HISTORY lines to help with MPO Canopus crashes
     if(remove_comment_history==True):
         logme("Removing COMMENT and HISTORY FITS header fields...")
         #add legacy WCS parameters (e.g., to support MaximDL 5.x)
-        data, header = fits.getdata(output_file, header=True)
+        #data, header = fits.get(output_file, header=True)
+        hdu_list = fits.open(output_file)
+        header = hdu_list[0].header
         header.remove("COMMENT",True,True)
         header.remove("HISTORY",True,True)
-        fits.writeto(output_file, data, header, clobber=True, output_verify='warn')
+        #otherwise we end up with doubles in the data
+        #hdu_list[0].scale('int32', bzero=1)
+        hdu_list.writeto(output_file, clobber=True, output_verify='warn')
         
     #convert CDxx transformation matrix to old CDELT,CROTA format (e.g., to support MaximDL v5.x)
     # AUTHOR:  M.G.R. Vogelaar, University of Groningen, The Netherlands
@@ -225,22 +230,32 @@ for new in sorted(im):
         fits.writeto(output_file, data, header, clobber=True, output_verify='warn')
         
     if(solve_field == True and update_ra_dec==True):	
-        logme("Updating OBJRA and OBJDEC FITS header fields...")
+        logme("Updating OBJRA/RA and OBJDEC/DEC FITS header fields...")
         #extra field center RA and DEC
         #Field center: (RA H:M:S, Dec D:M:S) = (23:46:47.050, -16:24:36.684).
-        match = re.search('Field center\: \(RA H\:M:S\, Dec D\:M\:S\) \= \(([0-9\:\-\.\s]+)\,([0-9\:\-\.\s]+)\)\.', output)
+        #Field center: (RA H:M:S, Dec D:M:S) = (05:25:22.758, +24:13:34.865).
+        #logme(output)
+        match = re.search('Field center\: \(RA H\:M\:S\, Dec D\:M\:S\) \= \(([0-9\:\-\.\s]+)\,([0-9\+\:\-\.\s]+)\)\.', output)
         if match:
             centerRA=match.group(1).strip()
             centerDEC=match.group(2).strip()
-            data, header = fits.getdata(output_file, header=True)
+            hdu_list = fits.open(output_file)
+            header = hdu_list[0].header
             header.set('OBJRA',centerRA)
             header.set('OBJDEC',centerDEC)
-            fits.writeto(output_file, data, header, clobber=True, output_verify='warn')			
+            header.set('RA',centerRA)
+            header.set('DEC',centerDEC)
+            #otherwise we end up with doubles in the data
+            hdu_list[0].scale('int32', bzero=1)
+            hdu_list.writeto(output_file, clobber=True, output_verify='warn')	
             #print centerRA
             #print centerDEC
         else:
             logme("Error. Field center RA/DEC not found in solve-field output!")
             quit()
+    
+    #keep MPO Canopus from screwing up this file by making it read only
+    os.system('chmod a-w %s'%output_file)
  
 if(add_date_to_fname == True):
     dt = dt_start+(dt_end-dt_start)/2
