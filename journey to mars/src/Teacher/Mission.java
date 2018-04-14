@@ -36,6 +36,8 @@ public class Mission extends JPanel {
 	public static final double rMars = 1.524;
 	public static final double eEarth = 0.000; //actual e=0.0167, but assume circular
 	public static final double eMars = 0.000;  //actual e=0.0935, but assume circular
+	public static final double omegaEarth = 102.94719; //actual 102.94719 longitude of the periapsis in degrees
+	public static final double omegaMars = 336.04084;  //actual 336.04084 longitude of the periapsis	
 	
 	public static final double aMin_toMars = (rMars + rEarth) / 2.0;
 	public static final double aMax_toMars = 5.0;
@@ -47,7 +49,8 @@ public class Mission extends JPanel {
 	public static final double eMax_toEarth = rMars/aMin_toEarth - 1.0;	
 	public static final double eMin = (rMars - rEarth) / (rMars + rEarth);
 
-	public static final LocalDateTime startDt = LocalDateTime.of(2003, 8, 30, 0, 0); //reference start date, Earth-Mars opposition, http://cseligman.com/text/planets/marsoppositions.htm	
+	public static final double startOmega = 241.0; //http://www.nakedeyeplanets.com/mars-oppositions.htm
+	public static final LocalDateTime startDt = LocalDateTime.of(2016, 5, 22, 0, 0); //reference start date, Earth-Mars opposition, http://cseligman.com/text/planets/marsoppositions.htm	
 	
 	public static final double escapeVelocityEarth = 11200.0; //m/s
 	public static final double escapeVelocityMars = 5100.0; //m/s

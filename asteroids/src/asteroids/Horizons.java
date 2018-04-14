@@ -20,7 +20,7 @@ public class Horizons {
     static final String declinationName = "DEC_(ICRF/J2000.0)";    
     static final double apMagMin = 18.0;	//only process days where apparent magnitude is brighter than this number	
     static final int stepSizeMin = 15;	//time step size in minutes of ephermeris
-	static final LocalDateTime dtStart = LocalDateTime.of(2017, 8, 1, 0, 0); //reference start date (e.g. beginning of IRTF session)
+	static final LocalDateTime dtStart = LocalDateTime.of(2018, 8, 1, 0, 0); //reference start date (e.g. beginning of IRTF session)
 
 	static String cookieFile = "_Horizons.txt";
 	
