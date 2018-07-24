@@ -38,7 +38,7 @@ def logme(str):
 # input path *with* ending forward slash
 input_path = './'
 # output path *with* ending forward slash
-output_path = './mastercal/'
+output_path = './'
 # log file name
 log_fname = 'log.mastercal.txt'
 # suffix for output files, if any...
@@ -143,7 +143,7 @@ for i in range(0, len(im)):
         continue
 
 # create bias master frames
-logme('Creating master bias frames...')
+logme('Creating master bias frame(s)...')
 for bin in cal['bias']:
     bias_master = '%smbias.bin%d.fits' % (output_path, bin)
     biases = None
@@ -169,7 +169,7 @@ for bin in cal['bias']:
           (bias_master, len(cal['bias'][bin])))
 
 # create dark frames
-logme('Creating master dark frames...')
+logme('Creating master dark frame(s)...')
 for bin in cal['dark']:
     for exp in cal['dark'][bin]:
         dark_master = '%smdark.bin%d.exp%ds.fits' % (
@@ -196,7 +196,7 @@ for bin in cal['dark']:
               (dark_master, len(cal['dark'][bin][exp])))
 
 # create flat frames
-logme('Creating master flat frames...')
+logme('Creating master flat frame(s)...')
 for bin in cal['flat']:
     for filt in cal['flat'][bin]:
         flat_master = '%smflat.bin%d.%s.fits' % (
