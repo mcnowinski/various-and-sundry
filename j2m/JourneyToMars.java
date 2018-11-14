@@ -63,18 +63,30 @@ public class JourneyToMars extends JFrame implements ActionListener, ChangeListe
 	}
 	
 	//
-	//Exercise 3
+	//Exercise 3A
 	//
-    public void resetDay() {
-    	//Exercise 3A      	
+	public void resetDay() {
+		mission.setDay(0.0);   	
     }
-    
-    public void addDay() {
-    	//Exercise 3C  	
+    //
+    //
+    //
+
+	//
+	//Exercise 3C
+	//    
+	public void addDay() {
+    	mission.incrementDay(1.0);   	
     }
+    //
+    //
+    //
     
-    public void minusDay() {
-    	//Exercise 3D	
+    //
+	//Exercise 3D
+	//
+	public void minusDay() {
+    	mission.incrementDay(-1.0);   	
     } 
     //
     //
@@ -145,10 +157,10 @@ public class JourneyToMars extends JFrame implements ActionListener, ChangeListe
 		dataText.setText(
 				"Day = " + mission.getDay() + " = " + dt.format(DateTimeFormatter.ofPattern("MM/dd/yyyy")) + "\n" +
 				//"dAng = " + String.format("%.2f", Math.toDegrees(mission.getEarthMarsAngle())) + " deg\n" +
-				"d (Earth-Mars) = " + String.format("%.3f", mission.getEarthMarsDistance()) + " AU\n" +
-				"d (Earth-Spaceship) = " + String.format("%.3f", mission.getEarthSpaceshipDistance()) + " AU\n" +
-				"d (Mars-Spaceship) = " + String.format("%.3f", mission.getMarsSpaceshipDistance()) + " AU\n" +
-				"d (Sun-Spaceship) = " + String.format("%.3f", mission.getSunSpaceshipDistance()) + " AU\n" + 
+				"d (Earth-Mars) = " + String.format("%.5f", mission.getEarthMarsDistance()) + " AU\n" +
+				"d (Earth-Spaceship) = " + String.format("%.5f", mission.getEarthSpaceshipDistance()) + " AU\n" +
+				"d (Mars-Spaceship) = " + String.format("%.5f", mission.getMarsSpaceshipDistance()) + " AU\n" +
+				"d (Sun-Spaceship) = " + String.format("%.5f", mission.getSunSpaceshipDistance()) + " AU\n" + 
 				"\nEarth:\n" +
 				"a, e = " + String.format("%.3f", mission.getEarth().getSemimajorAxis()) + " AU, " + String.format("%.3f", mission.getEarth().getEccentricity()) + "\n" +	
 				"T = " + String.format("%.3f", mission.getEarth().getPeriod()) + " years, " +	String.format("%.1f", mission.getEarth().getPeriod()*365.0) + " days\n" +					
@@ -400,7 +412,9 @@ public class JourneyToMars extends JFrame implements ActionListener, ChangeListe
 		
 		//orbits
 		Orbit earth = new Orbit("Earth", Mission.rEarth, Mission.eEarth);
+		earth.setOmega(Mission.omegaEarth);
 		Orbit mars = new Orbit("Mars", Mission.rMars, Mission.eMars);
+		mars.setOmega(Mission.omegaMars);
 		Orbit earth2Mars = new Orbit("Earth to Mars", Mission.aMin_toMars, Mission.eMin);
     	earth2Mars.setDestinationOrbit(mars);
     	Orbit mars2Earth = new Orbit("Mars to Earth", Mission.aMax_toEarth, Mission.eMin);

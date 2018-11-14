@@ -80,6 +80,15 @@ public class JourneyToMars extends JFrame implements ActionListener, ChangeListe
     //
     //
 	
+    public double normalizeAng(double ang) {      
+        ang = ang % 360;
+        if (ang < 0)
+        {
+        	ang += 360;
+        }
+        return ang;
+    }
+    
 	@Override
 	public void paint(Graphics g) {
 		
@@ -152,12 +161,12 @@ public class JourneyToMars extends JFrame implements ActionListener, ChangeListe
 				"\nEarth:\n" +
 				"a, e = " + String.format("%.3f", mission.getEarth().getSemimajorAxis()) + " AU, " + String.format("%.3f", mission.getEarth().getEccentricity()) + "\n" +	
 				"T = " + String.format("%.3f", mission.getEarth().getPeriod()) + " years, " +	String.format("%.1f", mission.getEarth().getPeriod()*365.0) + " days\n" +					
-				"Ang = " + String.format("%.1f", Math.toDegrees(mission.getEarth().getPositionAt(mission.getDay()).getV())) + " deg\n" +
+				"Ang = " + String.format("%.1f", normalizeAng(Math.toDegrees(mission.getEarth().getPositionAt(mission.getDay()).getV()))+Mission.omegaEarth) + " deg\n" +
 				"V = " + String.format("%.2f", mission.getEarth().getVelocity(mission.getDay())/1000.0) + " km/s\n" +				
 				"\nMars:\n" +				
 				"a, e = " + String.format("%.3f", mission.getMars().getSemimajorAxis()) + " AU, " + String.format("%.3f", mission.getMars().getEccentricity()) + "\n" +
 				"T = " + String.format("%.3f", mission.getMars().getPeriod()) + " years, " +	String.format("%.1f", mission.getMars().getPeriod()*365.0) + " days\n" +	
-				"Ang = " + String.format("%.1f", Math.toDegrees(mission.getMars().getPositionAt(mission.getDay()).getV())) + " deg\n" +
+				"Ang = " + String.format("%.1f", normalizeAng(Math.toDegrees(mission.getMars().getPositionAt(mission.getDay()).getV()))+Mission.omegaMars) + " deg\n" +
 				"V = " + String.format("%.2f", mission.getMars().getVelocity(mission.getDay())/1000.0) + " km/s\n"	+
 				"\nEarth to Mars:\n" +				
 				"a, e = " + String.format("%.3f", mission.getEarth2Mars().getSemimajorAxis()) + " AU, " + String.format("%.3f", mission.getEarth2Mars().getEccentricity()) + "\n" +	
