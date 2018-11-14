@@ -9,100 +9,114 @@ import string
 from decimal import Decimal
 from astropy.io import fits
 from astropy import wcs
+from astropy.coordinates import Angle
+import astropy.units as u
 from dateutil import parser
 import numpy
+import warnings
+from astropy.io.fits.verify import VerifyWarning
 
-def logme( str ):
-   log.write(str + "\n")
-   print str
-   return
 
-#MODIFY THESE FIELDS AS NEEDED!
-#input path *with* ending forward slash
-input_path='./'
-#output path *with* ending forward slash
-output_path='./wcs/'
-#log file name
+def logme(str):
+    log.write(str + "\n")
+    print str
+    return
+
+
+# MODIFY THESE FIELDS AS NEEDED!
+# input path *with* ending forward slash
+input_path = './'
+# output path *with* ending forward slash
+output_path = './wcs/'
+# log file name
 log_fname = 'log.asterized.txt'
-#suffix for output files, if any...
-output_suffix='.wcs'
-#path to astrometry.net solve_field executable
-solve_field_path='/usr/local/astrometry/bin/solve-field'
-#plate solve this image
-solve_field=True
-#remove COMMENT and HISTORY header fields? prevent MPO Canopus crashes caused by large FITS headers
-remove_comment_history=True
-#convert WCS parameters from CD to ROTA to help with Maxim DL v5.x
-convert_to_crota=False
-#update the OBJRA and OBJDEC with the calculated field center?
-update_ra_dec=False
-#watch the field rotation angle for a > 90 deg change; mark as flipped
-detect_meridian_flip=True
-last_rotation_angle=None
-flip_count=0
-#add date to final filename?
-add_date_to_fname=True
+# suffix for output files, if any...
+output_suffix = '.wcs'
+# path to astrometry.net solve_field executable
+solve_field_path = '/usr/local/astrometry/bin/solve-field'
+# plate solve this image
+solve_field = True
+# remove COMMENT and HISTORY header fields? prevent MPO Canopus crashes caused by large FITS headers
+remove_comment_history = True
+# convert WCS parameters from CD to ROTA to help with Maxim DL v5.x
+convert_to_crota = False
+# update the OBJRA and OBJDEC with the calculated field center?
+update_ra_dec = False
+# watch the field rotation angle for a > 90 deg change; mark as flipped
+detect_meridian_flip = True
+last_rotation_angle = None
+flip_count = 0
+# add date to final filename?
+add_date_to_fname = True
 
 dt_start = None
 dt_end = None
-session_count=1
+session_count = 1
 
 count = 0
 
-#does output directory exist? If not, create it
+# ignore warnings
+warnings.filterwarnings('ignore', category=VerifyWarning, append=True)
+
+# does output directory exist? If not, create it
 try:
     os.mkdir(output_path)
 except:
     pass
 
-log=open(log_fname, 'a+')	
-    
-#get a list of all FITS files in the input directory	
-im=glob.glob(input_path+'*.fits')+glob.glob(input_path+'*.fit')
-#loop through all qualifying files and perform plate-solving
+log = open(log_fname, 'a+')
+
+# get a list of all FITS files in the input directory
+im = glob.glob(input_path+'*.fits')+glob.glob(input_path+'*.fit')
+# loop through all qualifying files and perform plate-solving
 for new in sorted(im):
     error_flag = False
 
-    #remove spaces from filename
+    # remove spaces from filename
     new_nospace = string.replace(new, ' ', '_')
     new_nospace = string.replace(new_nospace, '(', '')
     new_nospace = string.replace(new_nospace, ')', '')
     os.rename(new, new_nospace)
     new = new_nospace
     if(solve_field == True):
-        logme("\nSolving %s"%(new))
-        #pull out RA/DEC from the FITS header, if they exist
-        d1=fits.open('%s'%(new))
+        logme("\nSolving %s" % (new))
+        # pull out RA/DEC from the FITS header, if they exist
+        d1 = fits.open('%s' % (new))
         d1.close()
-        h1=d1[0].header
+        h1 = d1[0].header
         try:
-            ra=h1['RA']
-            dec=h1['DEC']
+            ra = h1['RA']
+            dec = h1['DEC']
         except KeyError:
-            ra=h1['OBJCTRA']
-            dec=h1['OBJCTDEC']
-            raA=''
-            decA=''
-            for j in range(0,len(ra)):
-                if ra[j]==' ':
-                    raA+=':'
+            ra = h1['OBJCTRA']
+            dec = h1['OBJCTDEC']
+            raA = ''
+            decA = ''
+            for j in range(0, len(ra)):
+                if ra[j] == ' ':
+                    raA += ':'
                 else:
-                    raA+=ra[j]
+                    raA += ra[j]
 
-            for j in range(0,len(dec)):
-                if dec[j]==' ':
-                    decA+=':'
+            for j in range(0, len(dec)):
+                if dec[j] == ' ':
+                    decA += ':'
                 else:
-                    decA+=dec[j]
-            ra=raA
-            dec=decA
-        
-        #plate solve this image, using RA/DEC from FITS header
-        output = subprocess.check_output(solve_field_path + ' --no-fits2fits --overwrite --downsample 2 --guess-scale --ra %s --dec %s --radius 10.0 --cpulimit 30 --no-plots '%(ra,dec)+'"%s"'%(new), shell=True)
+                    decA += dec[j]
+            ra = raA
+            dec = decA
+
+        # plate solve this image, using RA/DEC from FITS header
+        # --crpix-center move CRVAL1 and CRVAL2 to center
+        print solve_field_path + \
+            ' --no-fits2fits --overwrite --downsample 2 --crpix-center --guess-scale --ra %s --dec %s --radius 10.0 --cpulimit 30 --no-plots ' % (
+                ra, dec) + '"%s"' % (new)
+        output = subprocess.check_output(
+            solve_field_path + ' --no-fits2fits --overwrite --downsample 2 --crpix-center --guess-scale --ra %s --dec %s --radius 10.0 --cpulimit 30 --no-plots ' % (ra, dec)+'"%s"' % (new), shell=True)
         log.write(output)
         #print output
-        
-        #remove astrometry.net temporary files
+
+        # remove astrometry.net temporary files
         os.system("find . -name '*.xyls' -delete;")
         os.system("find . -name '*.axy' -delete;")
         os.system("find . -name '*.corr' -delete;")
@@ -112,17 +126,18 @@ for new in sorted(im):
         os.system("find . -name '*.wcs' -delete;")
         os.system("find . -name '*.png' -delete;")
     else:
-        logme("\Duplicating %s"%(new))
-        os.system("cp %s %s.new"%(new,new.rsplit('.',1)[0]))
-    
-    #see if meridian flipped; parse solve-field "Field rotation angle" output; I am sure there is a better way, i.e. use resulting FITS header
-    if(solve_field == True and detect_meridian_flip==True):
-        #Field rotation angle: up is 88.1839 degrees E of N
-        match = re.search('Field rotation angle\: up is ([0-9\-\.]+) degrees', output)	
+        logme("\Duplicating %s" % (new))
+        os.system("cp %s %s.new" % (new, new.rsplit('.', 1)[0]))
+
+    # see if meridian flipped; parse solve-field "Field rotation angle" output; I am sure there is a better way, i.e. use resulting FITS header
+    if(solve_field == True and detect_meridian_flip == True):
+        # Field rotation angle: up is 88.1839 degrees E of N
+        match = re.search(
+            'Field rotation angle\: up is ([0-9\-\.]+) degrees', output)
         if match:
-            rotation_angle=float(match.group(1).strip())
+            rotation_angle = float(match.group(1).strip())
             if(rotation_angle < 0):
-                rotation_angle += 360.0;
+                rotation_angle += 360.0
             if(last_rotation_angle == None):
                 pass
             else:
@@ -134,140 +149,147 @@ for new in sorted(im):
                         #print (dt_start+(dt_end-dt_start)/2)
                         dt = dt_start+(dt_end-dt_start)/2
                         session = dt.strftime("%Y-%m-%dT%Hh%Mm%Ss")
-                        session = "sess.%02d.%s"%(session_count,session)
+                        session = "sess.%02d.%s" % (session_count, session)
                         try:
                             os.mkdir(output_path+session)
                         except:
                             pass
-                        os.system("mv %s*.fits %s%s"%(output_path,output_path,session))
-                        logme("Created new session. Moved .fits files to %s%s."%(output_path,session)) 
-                        session_count += 1                        
+                        os.system("mv %s*.fits %s%s" %
+                                  (output_path, output_path, session))
+                        logme("Created new session. Moved .fits files to %s%s." % (
+                            output_path, session))
+                        session_count += 1
                         dt_start = None
-            last_rotation_angle = rotation_angle				
+            last_rotation_angle = rotation_angle
         else:
             logme("Warning. Field rotation angle not found in solve-field output!")
             continue
-    
-    #create final plate-solved FITS file
+
+    # create final plate-solved FITS file
     if(add_date_to_fname == True):
-        #pull out DATE-OBS from the FITS header, if they exist
-        d1=fits.open('%s'%(new))
+        # pull out DATE-OBS from the FITS header, if they exist
+        d1 = fits.open('%s' % (new))
         d1.close()
-        h1=d1[0].header
+        h1 = d1[0].header
         try:
-            date_obs=h1['DATE-OBS']
+            date_obs = h1['DATE-OBS']
         except KeyError:
-            logme("Error! Observation date/time not found in FITS header for %s."%(new))
-            #quit()
+            logme("Error! Observation date/time not found in FITS header for %s." % (new))
+            # quit()
             continue
         if(dt_start == None):
             dt_start = parser.parse(date_obs)
             #print dt_start
-        dt_end  = parser.parse(date_obs)    
+        dt_end = parser.parse(date_obs)
         #print dt_end
-        date_obs = date_obs.replace(":","_")
-        date_obs = date_obs.replace("-","_")
+        date_obs = date_obs.replace(":", "_")
+        date_obs = date_obs.replace("-", "_")
         date_obs = "." + date_obs
-        output_file = "%s"%(new.rsplit('.',1)[0])+date_obs+output_suffix+".flip%d"%(flip_count)+".fits"		
+        output_file = "%s" % (new.rsplit(
+            '.', 1)[0])+date_obs+output_suffix+".flip%d" % (flip_count)+".fits"
     else:
-        output_file = "%s"%(new.rsplit('.',1)[0])+output_suffix++".flip%d"%(flip_count)+".fits"
-    
-    output_file = output_file.rsplit('/',1)[1]
+        output_file = "%s" % (new.rsplit(
+            '.', 1)[0])+output_suffix++".flip%d" % (flip_count)+".fits"
+
+    output_file = output_file.rsplit('/', 1)[1]
     output_file = output_path+output_file
     logme("Writing solution to "+output_file)
-    os.system('mv %s.new %s'%(new.rsplit('.',1)[0],output_file))
+    os.system('mv %s.new %s' % (new.rsplit('.', 1)[0], output_file))
     count += 1
-    
-    #remove COMMENT and HISTORY lines to help with MPO Canopus crashes
-    if(remove_comment_history==True):
+
+    # remove COMMENT and HISTORY lines to help with MPO Canopus crashes
+    if(remove_comment_history == True):
         logme("Removing COMMENT and HISTORY FITS header fields...")
-        #add legacy WCS parameters (e.g., to support MaximDL 5.x)
+        # add legacy WCS parameters (e.g., to support MaximDL 5.x)
         #data, header = fits.get(output_file, header=True)
         hdu_list = fits.open(output_file)
         header = hdu_list[0].header
-        header.remove("COMMENT",True,True)
-        header.remove("HISTORY",True,True)
-        #otherwise we end up with doubles in the data
-        #hdu_list[0].scale('int32', bzero=1)
-        hdu_list.writeto(output_file, clobber=True, output_verify='warn')
-        
-    #convert CDxx transformation matrix to old CDELT,CROTA format (e.g., to support MaximDL v5.x)
+        header.remove("COMMENT", True, True)
+        header.remove("HISTORY", True, True)
+        # otherwise we end up with doubles in the data
+        hdu_list[0].scale('int32', bzero=1)
+        hdu_list.writeto(output_file, clobber=True, output_verify='exception')
+
+    # convert CDxx transformation matrix to old CDELT,CROTA format (e.g., to support MaximDL v5.x)
     # AUTHOR:  M.G.R. Vogelaar, University of Groningen, The Netherlands
-    # DATE:    April 17, 2008	
-    if(convert_to_crota==True):
+    # DATE:    April 17, 2008
+    if(convert_to_crota == True):
         logme("Adding WCS CDELTx and CROTAx FITS header fields...")
         data, header = fits.getdata(output_file, header=True)
-        
-        cd11=header.get('CD1_1')
-        cd12=header.get('CD1_2')
-        cd21=header.get('CD2_1')
-        cd22=header.get('CD2_2')
-        
+
+        cd11 = header.get('CD1_1')
+        cd12 = header.get('CD1_2')
+        cd21 = header.get('CD2_1')
+        cd22 = header.get('CD2_2')
+
         cdeltlon_cd = math.sqrt(cd11*cd11+cd21*cd21)
         cdeltlat_cd = math.sqrt(cd12*cd12+cd22*cd22)
         det = cd11*cd22 - cd12*cd21
         if det == 0.0:
-          raise ValueError("Determinant of CD matrix == 0")
+            raise ValueError("Determinant of CD matrix == 0")
         sign = 1.0
         if det < 0.0:
-          cdeltlon_cd = -cdeltlon_cd
-          sign = -1.0
+            cdeltlon_cd = -cdeltlon_cd
+            sign = -1.0
         rot1_cd = math.atan2(-cd21, sign*cd11)
         rot2_cd = math.atan2(sign*cd12, cd22)
         rot_av = (rot1_cd+rot2_cd)/2.0
         crota_cd = math.degrees(rot_av)
         skew = math.degrees(abs(rot1_cd-rot2_cd))
-        
+
         #print "Angles from cd matrix:", math.degrees(rot1_cd), math.degrees(rot2_cd), crota_cd
         #print "Cdelt's from cd matrix:", cdeltlon_cd, cdeltlat_cd
         #print "Difference in angles (deg)", skew
 
-        header.set('CDELT1',cdeltlon_cd)
-        header.set('CDELT2',cdeltlat_cd)
-        header.set('CROTA1',crota_cd)
-        header.set('CROTA2',crota_cd)
+        header.set('CDELT1', cdeltlon_cd)
+        header.set('CDELT2', cdeltlat_cd)
+        header.set('CROTA1', crota_cd)
+        header.set('CROTA2', crota_cd)
 
-        fits.writeto(output_file, data, header, clobber=True, output_verify='warn')
-        
-    if(solve_field == True and update_ra_dec==True):	
+        fits.writeto(output_file, data, header,
+                     clobber=True, output_verify='warn')
+
+    if(solve_field == True and update_ra_dec == True):
         logme("Updating OBJRA/RA and OBJDEC/DEC FITS header fields...")
-        #extra field center RA and DEC
-        #Field center: (RA H:M:S, Dec D:M:S) = (23:46:47.050, -16:24:36.684).
-        #Field center: (RA H:M:S, Dec D:M:S) = (05:25:22.758, +24:13:34.865).
-        #logme(output)
-        match = re.search('Field center\: \(RA H\:M\:S\, Dec D\:M\:S\) \= \(([0-9\:\-\.\s]+)\,([0-9\+\:\-\.\s]+)\)\.', output)
+        # extra field center RA and DEC
+        # Field center: (RA H:M:S, Dec D:M:S) = (23:46:47.050, -16:24:36.684).
+        # Field center: (RA H:M:S, Dec D:M:S) = (05:25:22.758, +24:13:34.865).
+        # logme(output)
+        match = re.search(
+            'Field center\: \(RA H\:M\:S\, Dec D\:M\:S\) \= \(([0-9\:\-\.\s]+)\,([0-9\+\:\-\.\s]+)\)\.', output)
         if match:
-            centerRA=match.group(1).strip()
-            centerDEC=match.group(2).strip()
+            centerRA = match.group(1).strip()
+            centerDEC = match.group(2).strip()
             hdu_list = fits.open(output_file)
             header = hdu_list[0].header
-            header.set('OBJRA',centerRA)
-            header.set('OBJDEC',centerDEC)
-            header.set('RA',centerRA)
-            header.set('DEC',centerDEC)
-            #otherwise we end up with doubles in the data
+            header.set('OBJRA', centerRA)
+            header.set('OBJDEC', centerDEC)
+            header.set('RA', centerRA)
+            header.set('DEC', centerDEC)
+            # otherwise we end up with doubles in the data
             hdu_list[0].scale('int32', bzero=1)
-            hdu_list.writeto(output_file, clobber=True, output_verify='warn')	
+            hdu_list.writeto(output_file, clobber=True, output_verify='warn')
             #print centerRA
             #print centerDEC
         else:
             logme("Error. Field center RA/DEC not found in solve-field output!")
             quit()
-    
-    #keep MPO Canopus from screwing up this file by making it read only
-    os.system('chmod a-w %s'%output_file)
- 
+
+    # keep MPO Canopus from screwing up this file by making it read only
+    os.system('chmod a-w %s' % output_file)
+
 if(add_date_to_fname == True):
     dt = dt_start+(dt_end-dt_start)/2
     session = dt.strftime("%Y-%m-%dT%Hh%Mm%Ss")
-    session = "sess.%02d.%s"%(session_count,session)
+    session = "sess.%02d.%s" % (session_count, session)
     try:
         os.mkdir(output_path+session)
     except:
         pass
-    os.system('mv %s*.fits %s%s'%(output_path,output_path,session))
-    logme("Created new session. Moved .fits files to %s%s."%(output_path,session))
-    
-logme("\nComplete. Processed %d of %d files."%(count, len(im)))
+    os.system('mv %s*.fits %s%s' % (output_path, output_path, session))
+    logme("Created new session. Moved .fits files to %s%s." %
+          (output_path, session))
 
-log.close()    
+logme("\nComplete. Processed %d of %d files." % (count, len(im)))
+
+log.close()
