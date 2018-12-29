@@ -25,6 +25,7 @@ from astropy.wcs import WCS
 from astropy.coordinates import SkyCoord
 import pandas as pd
 from astropy.time import Time
+import shutil
 
 #
 # START SETTINGS
@@ -34,15 +35,21 @@ from astropy.time import Time
 input_path = './'
 # output path *with* ending forward slash
 sex_output_path = './firstlook/'
+# bad path
+bad_path = './bad/'
 # suffix for output files, if any...
 sex_output_suffix = '.sex'
 # log file name
-log_fname = './log.sexcurve.txt'
+log_fname = './log.firstlook.txt'
 # path to sextractor executable and config files (incl. the filenames!)
-sextractor_bin_fname = 'D:/owncloud/code/seo/sexcurve/sextractor.exe'
-sextractor_cfg_fname = 'D:/owncloud/code/seo/sexcurve/sexcurve.sex'
-sextractor_param_fname = 'D:/owncloud/code/seo/sexcurve/sexcurve.param'
-sextractor_filter_fname = 'D:/owncloud/code/seo/sexcurve/sexcurve.conv'
+sextractor_bin_fname = os.path.dirname(
+    os.path.realpath(__file__)) + '\\' + 'sextractor.exe'
+sextractor_cfg_fname = os.path.dirname(
+    os.path.realpath(__file__)) + '\\' + 'sexcurve.sex'
+sextractor_param_fname = os.path.dirname(
+    os.path.realpath(__file__)) + '\\' + 'sexcurve.param'
+sextractor_filter_fname = os.path.dirname(
+    os.path.realpath(__file__)) + '\\' + 'sexcurve.conv'
 # tolerance for object matching
 dRa = 0.00062
 dDec = 0.00062
@@ -131,16 +138,8 @@ log = open(log_fname, 'a+')
 # set up the command line argument parser
 parser = argparse.ArgumentParser(
     description='Perform lightcurve photometry using sextractor.')
-parser.add_argument('asteroid', metavar='asteroid#', type=int,
-                    help='Target asteroid number')
-# parser.add_argument('--plot_apd', action='store_true',
-#                    help='Plot average object magnitude vs. aperture diameter for all images.')
-# parser.add_argument('--plot_ds9', action='store_true',
-#                    help='Plot apertures for each image using DS9.')
-# parser.add_argument('--labels', action='store_true',
-#                    help='Add labels to magnitude plot(s).')
-# parser.add_argument("--apd", help="Perform analysis for one or more apertures (csv).",
-#                    type=str)
+# parser.add_argument('asteroid', metavar='asteroid#', type=int,
+#                    help='Target asteroid number')
 args = parser.parse_args()
 
 # make sure input files and folder exist
@@ -152,7 +151,7 @@ for input in inputs:
         exit()
 
 # does output directory exist? If not, create it...
-outputs = [sex_output_path, cleaned_output_path]
+outputs = [sex_output_path, cleaned_output_path, bad_path]
 for output in outputs:
     try:
         os.mkdir(output)
@@ -264,9 +263,9 @@ for index, l in enumerate(lines):
         {'index': index, 'ra': ra, 'dec': dec, 'object_name': name, 'found': True})
 # add the asteroid to the object list
 # we don't know the ra/dec yet until we get the date/time from the FITS file
-target_index = index + 1
-object_data.append({'index': target_index, 'ra': '',
-                    'dec': '', 'object_name': '%d' % args.asteroid, 'found': True})
+#target_index = index + 1
+# object_data.append({'index': target_index, 'ra': '',
+#                    'dec': '', 'object_name': '%d' % args.asteroid, 'found': True})
 
 logme('Searching for %d objects in sextracted data.' % len(object_data))
 ofile = file(counts_out_fname, 'wt')
@@ -280,10 +279,10 @@ for image in image_data:
     for s in (x for x in object_data):
         found = False
         # assign the asteroid ra/dec
-        if s['object_name'] == '%d' % args.asteroid:
-            # get ra/dec of asteroid at the time image was taken
-            (s['ra'], s['dec']) = getAsteroidRaDec(
-                s['object_name'], image['dt_obs'])
+        # if s['object_name'] == '%d' % args.asteroid:
+        #    # get ra/dec of asteroid at the time image was taken
+        #    (s['ra'], s['dec']) = getAsteroidRaDec(
+        #        s['object_name'], image['dt_obs'])
         for l in lines:
             spl = l.split()
             ra = float(spl[0])
@@ -296,12 +295,15 @@ for image in image_data:
     ofile.write('%s,%d\n' % (image['sex'], num_found))
 ofile.close()
 
-print len(images)
 mode = np.bincount(counts).argmax()
 std = np.array(counts).std()
 mask = np.array(counts) >= mode - std
-print np.array(images)[mask]
-print len(np.array(images)[mask])
+logme('A total of %d stars were for found in %d (of %d) images.' %
+      (mode, len(np.array(images)[mask]), len(images)))
 mask = np.array(counts) < mode - std
-print np.array(images)[mask]
-print len(np.array(images)[mask])
+bad_images = np.array(images)[mask]
+for image in bad_images:
+    head, tail = os.path.split(image)
+    shutil.move(image, '%s%s' % (bad_path, tail))
+logme('A total of %d images were moved to %s.' %
+      (len(bad_images), bad_path))
