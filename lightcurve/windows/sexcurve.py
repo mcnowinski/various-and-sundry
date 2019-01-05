@@ -26,12 +26,6 @@ from astropy.coordinates import SkyCoord
 import pandas as pd
 from astropy.time import Time
 import struct
-
-#
-if struct.calcsize("P") * 8 != 32:
-    logme('Error. Run this script with the 32-bit version of Python!')
-    os.sys.exit()
-
 #
 # START SETTINGS
 # MODIFY THESE FIELDS AS NEEDED!
@@ -72,6 +66,8 @@ pso_ref_mag = 'rPSFMag'
 pso_max_mag = 16
 # panstarrs min magnitude
 pso_min_mag = 0
+# figure count
+figure_count = 1
 
 #
 # END SETTINGS
@@ -121,6 +117,10 @@ def getAsteroidRaDec(name, dt):
     result.set_epochrange(start.isoformat(), end.isoformat(), '1m')
     result.get_ephemerides(obs_code)
     if result and len(result['EL']):
+        #if len(result['EL']) > 1:
+        #    logme('Error. Multiple matches (%s) were returned by JPL HORIZONS for %s.' % (
+        #        name, len(result['EL'])))
+        #    exit()
         ra = result['RA'][0]
         dec = result['DEC'][0]
     else:
@@ -135,14 +135,18 @@ def jdToYYMMDD_HHMMSS(jd):
     return t.iso
 
 
+def onclick(event):
+    logme('xdata=%f, ydata=%f' % (event.xdata, event.ydata))
+
+
 # open log file
 log = open(log_fname, 'a+')
 
 # set up the command line argument parser
 parser = argparse.ArgumentParser(
     description='Perform lightcurve photometry using sextractor.')
-parser.add_argument('asteroid', metavar='asteroid#', type=int,
-                    help='Target asteroid number')
+parser.add_argument('asteroid', metavar='asteroid#',
+                    help='Target asteroid name or number')
 parser.add_argument('--plot_apd', action='store_true',
                     help='Plot average object magnitude vs. aperture diameter for all images.')
 parser.add_argument('--plot_ds9', action='store_true',
@@ -262,7 +266,7 @@ for fits_file in sorted(fits_files):
     output_file = '%s%s.txt' % (output_file, sex_output_suffix)
     # add input filename, output filename, airmass, and jd to sex_file list
     image_data.append(
-        {'image': fits_file, 'sex': output_file, 'jd': JD, 'airmass': airmass, 'ra': ra, 'dec': dec, 'dt_obs': dt_obs, 'r_arcmin': r_arcmin})
+        {'image': fits_file, 'sex': output_file, 'jd': JD, 'airmass': airmass, 'ra': ra, 'dec': dec, 'dt_obs': dt_obs, 'r_arcmin': r_arcmin, 'found_target': True})
     # sextract this file
     (output, error, id) = runSubprocess([sextractor_bin_fname, fits_file, '-c', sextractor_cfg_fname, '-catalog_name',
                                          output_file, '-parameters_name', sextractor_param_fname, '-filter_name', sextractor_filter_fname])
@@ -325,7 +329,7 @@ for index, l in enumerate(lines):
 # we don't know the ra/dec yet until we get the date/time from the FITS file
 target_index = index + 1
 object_data.append({'index': target_index, 'ra': '',
-                    'dec': '', 'object_name': '%d' % args.asteroid, 'found': True})
+                    'dec': '', 'object_name': args.asteroid, 'found': True})
 
 logme('Searching for %d objects in sextracted data.' % len(object_data))
 ofile = file(counts_out_fname, 'wt')
@@ -335,10 +339,10 @@ for image in image_data:
     num_found = 0
     lines = [s for s in file(image['sex'], 'rt') if len(s) > 2]
     # unless object is target, stop looking for it if it was not found in one of the images
-    for s in (x for x in object_data if (x['found'] == True or x['object_name'] == '%d' % args.asteroid)):
+    for s in (x for x in object_data if (x['found'] == True or x['object_name'] == args.asteroid)):
         found = False
         # assign the asteroid ra/dec
-        if s['object_name'] == '%d' % args.asteroid:
+        if s['object_name'] == args.asteroid:
             # get ra/dec of asteroid at the time image was taken
             (s['ra'], s['dec']) = getAsteroidRaDec(
                 s['object_name'], image['dt_obs'])
@@ -362,11 +366,18 @@ for image in image_data:
                 num_found += 1
                 found = True
                 break
-        # keep track of which targets were not found
+        # keep track of which objects were not found
+        # keep track of images in which target was not found
         if found == False:
-            logme('Object (%s) not found in %s.' %
-                  (s['object_name'], image['sex']))
-            s['found'] = False
+            if s['object_name'] == args.asteroid:
+                logme('Target (%s) not found in %s.' %
+                      (s['object_name'], image['sex']))
+                # mark image accordingly
+                image['found_target'] = False
+            else:
+                logme('Object (%s) not found in %s.' %
+                      (s['object_name'], image['sex']))
+                s['found'] = False
     ofile.write('%s,%d\n' % (image['sex'], num_found))
 #    if num_found != len(object_data):
 #        logme('Warning! Found %s of %s objects in %s.' %
@@ -376,14 +387,16 @@ logme('Found %d observations of %d objects in %d sextracted files.' %
       (len(sex_data), len(object_data), len(image_data)))
 
 # clean it up
-# remove photometry and objects that are not detected in every image
+# remove photometry for objects that are not detected in every image
+# also, remove all data for images that did not identify the target
 for i in xrange(len(object_data) - 1, -1, -1):
     s = object_data[i]
     if s['found'] == False:
-        if s['object_name'] == '%d' % args.asteroid:
-            logme('Error. Target (%d) was not detected in every image.' %
-                  args.asteroid)
-            exit()
+        #        if s['object_name'] == '%d' % args.asteroid:
+        #            #            logme('Error. Target (%d) was not detected in every image.' %
+        #            #                  args.asteroid)
+        #            #            exit()
+        #        else:
         logme('Object (%s) not detected in every image. Removed from list.' %
               s['object_name'])
         for j in xrange(len(sex_data) - 1, -1, -1):
@@ -393,6 +406,20 @@ for i in xrange(len(object_data) - 1, -1, -1):
                 #      (o['object_name'], o['jd']))
                 del sex_data[j]
         del object_data[i]
+
+# clean it up
+# remove photometry for objects that are not detected in every image
+# also, remove all data for images that did not identify the target
+for image in image_data:
+    if image['found_target'] == False:
+        logme('Target (%s) was not detected in image (%s). Removing all photometry associated with image.' % (
+            args.asteroid, image['image']))
+        for j in xrange(len(sex_data) - 1, -1, -1):
+            o = sex_data[j]
+            if o['image'] == image['image']:
+                # logme('Removing photometric data for object (%s) from JD=%s.' %
+                #      (o['object_name'], o['jd']))
+                del sex_data[j]
 
 # save compiled sex data to a new file
 ofile = file(targets_out_fname, 'wt')
@@ -425,6 +452,9 @@ if args.plot_apd:
         # ensure this object was detected!
         if len(filtered_array) == 0:
             continue
+        fig = plt.figure(figure_count)
+        cid = fig.canvas.mpl_connect('button_press_event', onclick)
+        figure_count += 1
         magnitudes = np.mean(filtered_array, axis=0)[
             mag_start_index:mag_start_index+len(apertures)]
         magnitude_stdevs = np.std(filtered_array, axis=0)[
@@ -435,7 +465,7 @@ if args.plot_apd:
         plt.xlabel('Aperture Diameter, D (pixels)')
         plt.ylabel('Ave. Instrumental Magnitude, m')
         plt.title(s['object_name'])
-        plt.show()
+        # plt.show(block=False)
 
 # plot target and comp stars in ds9
 if args.plot_ds9:
@@ -480,6 +510,9 @@ if args.apd:
     for s in object_data:
         if s['index'] != target_index:
             continue
+        fig = plt.figure(figure_count)
+        cid = fig.canvas.mpl_connect('button_press_event', onclick)
+        figure_count += 1
         filtered_array = np.array(
             filter(lambda row: row[0] == s['index'], data))
         # ensure this object was detected!
@@ -502,9 +535,12 @@ if args.apd:
         else:
             object_name = 'Comp Star: ' + s['object_name']
         plt.title(object_name)
-        plt.show()
+        # plt.show(block=False)
 
     # get average of comps
+    fig = plt.figure(figure_count)
+    figure_count += 1
+    cid = fig.canvas.mpl_connect('button_press_event', onclick)
     for idx, apd_index in enumerate(apd_idxs):
         filtered_array = np.array(filter(lambda row: row[0] != target_index, data))[
             :, [jd_index, mag_start_index + apd_index]]
@@ -521,8 +557,11 @@ if args.apd:
     plt.xlabel('Julian Date')
     plt.ylabel('Instrumental Magnitude, m')
     plt.title('Comp Star Average')
-    plt.show()
+    # plt.show(block=False)
 
+    fig = plt.figure(figure_count)
+    figure_count += 1
+    cid = fig.canvas.mpl_connect('button_press_event', onclick)
     for idx, apd_index in enumerate(apd_idxs):
         # plot target-comp ave instr magnitude
         target_magnitudes = np.array(filter(lambda row: row[0] == target_index, data))[
@@ -535,10 +574,12 @@ if args.apd:
     plt.legend(loc='upper left')
     plt.xlabel('Julian Date')
     plt.ylabel('Instrumental Magnitude, m')
-    plt.title('Target (%d) Differential' % args.asteroid)
+    plt.title('Target (%s) / Comp Differential' % args.asteroid)
     jds = target_magnitudes[:, 0]
     mags = target_magnitudes[:, 1] - np.transpose(ave_comp_magnitudes)
     if args.labels:
         for x, y in zip(jds, mags[0]):
             plt.annotate('%s' % jdToYYMMDD_HHMMSS(x), xy=(x, y))
-    plt.show()
+    # plt.show(block=False)
+
+plt.show()

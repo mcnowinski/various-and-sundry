@@ -304,6 +304,6 @@ mask = np.array(counts) < mode - std
 bad_images = np.array(images)[mask]
 for image in bad_images:
     head, tail = os.path.split(image)
-    shutil.move(image, '%s%s' % (bad_path, tail))
-logme('A total of %d images were moved to %s.' %
+    shutil.copy(image, '%s%s' % (bad_path, tail))
+logme('A total of %d images were copied to %s.' %
       (len(bad_images), bad_path))

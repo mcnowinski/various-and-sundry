@@ -140,8 +140,8 @@ if(remove_comment_history == True):
     h1.remove("HISTORY", True, True)
     # otherwise we end up with doubles in the data
     d1[0].scale('int32', bzero=1)
-    d1.writeto('%s.new' % (input_fits.rsplit('.', 1)[
-               0]), clobber=True, output_verify='exception')
+    d1[0].writeto('%s.new' % (input_fits.rsplit('.', 1)[
+        0]), clobber=True, output_verify='exception')
 d1.close()
 try:
     date_obs = h1['DATE-OBS']

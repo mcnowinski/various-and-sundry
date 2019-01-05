@@ -34,8 +34,13 @@ log_fname = 'log.previewed.txt'
 output_suffix = '.wcs'
 # path to stiff fits to tiff converter
 stiff_path = '/usr/local/bin/stiff'
+stiff_outfile_name = 'previewer.tif'
 # path to ImageMagick convert tool
 convert_path = '/usr/bin/convert'
+# path to ds9
+ds9_path = 'C:/ds9.new/ds9.exe'
+# path to cygwin for Windows
+cygwin_path = 'C:/cygwin64/bin/bash.exe'
 
 count = 0
 
@@ -54,10 +59,13 @@ log = open(log_fname, 'a+')
 fits_files = glob.glob(input_path+'*.fits')+glob.glob(input_path+'*.fit')
 # loop through all qualifying files and perform plate-solving
 for fits_file in sorted(fits_files):
+    # output=subprocess.check_output(stiff_path + ' "%s -OUTFILE_NAME=%s%s -VERBOSE_TYPE=QUIET -WRITE_XML=NO -COPY_HEADER=N -IMAGE_TYPE=TIFF"' %
+    #                                 (os.path.abspath(fits_file).replace('\\', '/'), os.path.abspath(output_path).replace('\\', '/'), fits_file+'.tif'), shell=True, stderr=subprocess.STDOUT)
+    # output = subprocess.check_output(ds9_path + ' -file "%s" -zoom to fit -scale zscale -export jpg %s%s 100 -exit' %
+    #                                 (fits_file, output_path, fits_file+'.jpg'), shell=True, stderr=subprocess.STDOUT)
+    stiff_cmd = '%s %s -OUTFILE_NAME=%s/%s -VERBOSE_TYPE=QUIET -WRITE_XML=NO -COPY_HEADER=N -IMAGE_TYPE=TIFF' % (
+        stiff_path, os.path.abspath(fits_file).replace('\\', '/'), os.path.abspath(output_path).replace('\\', '/'), fits_file.replace('\\', '/') + '.tif')
     output = subprocess.check_output(
-        solve_field_path + ' --no-fits2fits --overwrite --downsample 2 --crpix-center --guess-scale --ra %s --dec %s --radius 10.0 --cpulimit 30 --no-plots ' % (ra, dec)+'"%s"' % (new), shell=True)
-    log.write(output)
-
-logme("\nComplete. Processed %d of %d files." % (count, len(im)))
+        '%s -l -c "%s"' % (cygwin_path, stiff_cmd), shell=True, stderr=subprocess.STDOUT)
 
 log.close()

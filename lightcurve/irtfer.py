@@ -18,7 +18,7 @@ from astropy.io.fits.verify import VerifyWarning
 
 # MODIFY THESE FIELDS AS NEEDED!
 # input path *with* ending forward slash
-input_path = 'D:/irtf/raw/180920/'
+input_path = './'
 
 # ignore warnings
 warnings.filterwarnings('ignore', category=VerifyWarning, append=True)
