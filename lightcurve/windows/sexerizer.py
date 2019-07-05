@@ -26,6 +26,18 @@ from astropy.coordinates import SkyCoord
 import pandas as pd
 from astropy.time import Time
 import struct
+import logging
+
+# logging
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(levelname)s - %(name)s - %(funcName)s - %(message)s',
+    handlers=[
+        logging.FileHandler("sexerizer.log"),
+        logging.StreamHandler()
+    ])
+logger = logging.getLogger('sexerizer')
+
 #
 # START SETTINGS
 # MODIFY THESE FIELDS AS NEEDED!
@@ -33,11 +45,9 @@ import struct
 # input path *with* ending forward slash
 input_path = './'
 # output path *with* ending forward slash
-sex_output_path = './sexcurve/'
+sex_output_path = './sexerizer/'
 # suffix for output files, if any...
 sex_output_suffix = '.sex'
-# log file name
-log_fname = './log.sexcurve.txt'
 # path to sextractor executable and config files (incl. the filenames!)
 sextractor_bin_fname = os.path.dirname(
     os.path.realpath(__file__)) + '\\' + 'sextractor.exe'
@@ -73,20 +83,6 @@ figure_count = 1
 # END SETTINGS
 #
 
-# logger
-
-
-def logme(str):
-    log.write(str + "\n")
-    print str
-    return
-
-
-def exit():
-    logme('Program execution halted.')
-    log.close()
-    os.sys.exit(1)
-
 # run external process
 
 
@@ -95,39 +91,14 @@ def runSubprocess(command_array):
     try:
         with open(os.devnull, 'w') as fp:
             sp = subprocess.Popen(command_array, stderr=fp, stdout=fp)
-        # logme('Running subprocess ("%s" %s)...'%(' '.join(command_array), sp.pid))
+        # logger.info('Running subprocess ("%s" %s)...'%(' '.join(command_array), sp.pid))
         sp.wait()
         output, error = sp.communicate()
         return (output, error, sp.pid)
     except:
-        logme('Error. Subprocess ("%s" %d) failed.' %
-              (' '.join(command_array), sp.pid))
+        logger.info('Error. Subprocess ("%s" %d) failed.' %
+                    (' '.join(command_array), sp.pid))
         return ('', '', 0)
-
-# get current ra/dec of target asteroid
-
-
-def getAsteroidRaDec(name, dt):
-    ra = ''
-    dec = ''
-    start = dt
-    end = dt + timedelta(minutes=1)
-    # get ephemerides for target in JPL Horizons from start to end times
-    result = ch.query(name.upper(), smallbody=True)
-    result.set_epochrange(start.isoformat(), end.isoformat(), '1m')
-    result.get_ephemerides(obs_code)
-    if result and len(result['EL']):
-        # if len(result['EL']) > 1:
-        #    logme('Error. Multiple matches (%s) were returned by JPL HORIZONS for %s.' % (
-        #        name, len(result['EL'])))
-        #    exit()
-        ra = result['RA'][0]
-        dec = result['DEC'][0]
-    else:
-        logme('Error. Asteroid (%s) not found for %s.' %
-              (name, start.isoformat()))
-        exit()
-    return (ra, dec)
 
 
 def jdToYYMMDD_HHMMSS(jd):
@@ -136,21 +107,17 @@ def jdToYYMMDD_HHMMSS(jd):
 
 
 def onclick(event):
-    logme('xdata=%f, ydata=%f' % (event.xdata, event.ydata))
+    logger.info('xdata=%f, ydata=%f' % (event.xdata, event.ydata))
 
 
 def onclick_mag_vs_JD(event):
-    logme('JD=%s, mag=%f' % (jdToYYMMDD_HHMMSS(event.xdata), event.ydata))
+    logger.info('JD=%s, mag=%f' %
+                (jdToYYMMDD_HHMMSS(event.xdata), event.ydata))
 
-
-# open log file
-log = open(log_fname, 'a+')
 
 # set up the command line argument parser
 parser = argparse.ArgumentParser(
     description='Perform lightcurve photometry using sextractor.')
-parser.add_argument('asteroid', metavar='asteroid#',
-                    help='Target asteroid name or number')
 parser.add_argument('--plot_apd', action='store_true',
                     help='Plot average object magnitude vs. aperture diameter for all images.')
 parser.add_argument('--plot_ds9', action='store_true',
@@ -166,51 +133,15 @@ inputs = [input_path, sextractor_bin_fname, sextractor_cfg_fname,
           sextractor_param_fname,  sextractor_filter_fname, comps_fname]
 for input in inputs:
     if not os.path.exists(input_path):
-        logme('Error. The file or path (%s) does not exist.' % input)
-        exit()
+        raise Exception('Error. The file or path (%s) does not exist.' % input)
 
-# does output directory exist? If not, create it...
+# do output directories exist? If not, create them...
 outputs = [sex_output_path, cleaned_output_path]
 for output in outputs:
     try:
         os.mkdir(output)
     except:
         pass
-
-# do we need to clean up any bad pixels?
-bad_pixels = []
-if os.path.exists(bad_pixels_fname):
-    logme('Found list of bad pixels in %s.' % bad_pixels_fname)
-    with open(bad_pixels_fname, 'r') as f:
-        lines = f.readlines()
-        for line in lines:
-            xy = line.split()
-            bad_pixels.append([int(xy[0]), int(xy[1])])
-# if pixels have been marked as bad, replace their values with median values
-if len(bad_pixels):
-    # get a list of all FITS files in the input directory
-    fits_files = glob.glob(input_path+'*.fits')+glob.glob(input_path+'*.fit')
-    for fits_file in fits_files:
-        # get data from fits file
-        fits_data = fits.open(fits_file)
-        data = fits_data[0].data
-        # initialize mask with zeros
-        mask = np.zeros((np.size(data, 0), np.size(data, 1)), dtype=bool)
-        # mark bad pixels in mask
-        for bad_pixel in bad_pixels:
-            mask[bad_pixel[1]-1][bad_pixel[0]-1] = 1
-        # calculate median filtered version of data (using surrounding pixels)
-        data_cleaned = np.copy(data)
-        data_cleaned[mask] = median_filter(
-            data, footprint=[[1, 1, 1], [1, 0, 1], [1, 1, 1]])[mask]
-        # replace fits data
-        fits_data[0].data = data_cleaned
-        # write it to cleaned fits file
-        output_file = os.path.basename(fits_file)
-        output_file = cleaned_output_path+output_file
-        fits_data.writeto(output_file, overwrite=True)
-    # use corrected images as input to sextractor
-    input_path = cleaned_output_path
 
 # grab aperture settings from sextractor config file, hopefully it will match the magnitude array ;)
 apertures = []
@@ -223,8 +154,8 @@ with open(sextractor_cfg_fname) as f:
             apertures_string = match.group(1).strip()
             apertures = np.array(
                 [int(aperture) for aperture in apertures_string.split(',')])
-logme('Photometry to be performed for %d aperture diameters: %s.' %
-      (len(apertures), apertures_string))
+logger.info('Photometry to be performed for %d aperture diameters: %s.' %
+            (len(apertures), apertures_string))
 
 image_data = []
 # get a list of all FITS files in the input directory
@@ -234,28 +165,16 @@ for fits_file in sorted(fits_files):
     fits_data = fits.open(fits_file)
     header = fits_data[0].header
     wcs = WCS(header)
-    airmass = header['AIRMASS']
     try:
+        airmass = header['AIRMASS']
         dt_obs = dateutil.parser.parse(header['DATE-OBS'])
-    except:
-        logme('Error. Invalid observation date found in %s.' % fits_file)
-        exit()
-    try:
         naxis1 = header['NAXIS1']
         naxis2 = header['NAXIS2']
-    except:
-        logme('Error. Invalid CCD pixel size found in %s.' % fits_file)
-        exit()
-    try:
         ra = header['CRVAL1']
         dec = header['CRVAL2']
-    except:
-        logme('Error. Invalid RA/DEC found in %s.' % fits_file)
-        exit()
-    try:
         JD = header['MJD-OBS']
     except KeyError:
-        JD = header['JD']
+        raise Exception('Error. Invalid FITS header in %s.' % fits_file)
     # calculate image corners in ra/dec
     ra1, dec1 = wcs.all_pix2world(0, 0, 0)
     ra2, dec2 = wcs.all_pix2world(naxis1, naxis2, 0)
@@ -264,7 +183,7 @@ for fits_file in sorted(fits_files):
     c2 = SkyCoord(ra2, dec2, unit="deg")
     # estimate radius of FOV in arcmin
     r_arcmin = '%f' % (c1.separation(c2).deg*60/2)
-    logme("Sextracting %s" % (fits_file))
+    logger.info("Sextracting %s" % (fits_file))
     output_file = sex_output_path + \
         fits_file.replace('\\', '/').rsplit('/', 1)[1]
     output_file = '%s%s.txt' % (output_file, sex_output_suffix)
@@ -275,14 +194,13 @@ for fits_file in sorted(fits_files):
     (output, error, id) = runSubprocess([sextractor_bin_fname, fits_file, '-c', sextractor_cfg_fname, '-catalog_name',
                                          output_file, '-parameters_name', sextractor_param_fname, '-filter_name', sextractor_filter_fname])
     if error:
-        logme('Error. Sextractor failed: %s' % output)
-        exit()
-logme('Sextracted %d files.' % len(image_data))
+        raise Exception('Error. Sextractor failed: %s' % output)
+logger.info('Sextracted %d files.' % len(image_data))
 
 # build list of comparison stars in comps_fname using
 # PanSTARRS Stack Object Catalog Search
-logme('Searching for comparison stars in the PANSTARRS catalog (ra=%s deg, dec=%s deg, radius=%s min)...' %
-      (image_data[0]['ra'], image_data[0]['dec'], image_data[0]['r_arcmin']))
+logger.info('Searching for comparison stars in the PANSTARRS catalog (ra=%s deg, dec=%s deg, radius=%s min)...' %
+            (image_data[0]['ra'], image_data[0]['dec'], image_data[0]['r_arcmin']))
 pso_url_base = 'http://archive.stsci.edu/panstarrs/stackobject/search.php'
 pso_url_parms = '?resolver=Resolve&radius=%s&ra=%s&dec=%s&equinox=J2000&nDetections=&selectedColumnsCsv=objname%%2Cobjid%%2Cramean%%2Cdecmean%%2Cgpsfmag%%2Crpsfmag%%2Cipsfmag' + \
     '&coordformat=dec&outputformat=CSV_file&skipformat=on' + \
@@ -293,8 +211,7 @@ url = pso_url_base + \
 # get the results of the REST query
 comps = pd.read_csv(url)
 if len(comps) <= 0:
-    logme('Error. No comparison stars found!')
-    exit()
+    raise Exception('Error. No comparison stars found!')
 # remove dupes, keep first
 comps.drop_duplicates(subset=['objName'], keep='first', inplace=True)
 # make sure magnitudes are treated as floats
@@ -305,13 +222,14 @@ comps['objName'] = comps['objName'].str.replace('PSO ', '')
 comps = comps.query("%s > %f & %s < %f" %
                     (pso_ref_mag, pso_min_mag, pso_ref_mag, pso_max_mag))
 if len(comps) <= 0:
-    logme('Error. No comparison stars meet the criteria (%s > %f & %s < %f)!' %
-          (pso_ref_mag, pso_min_mag, pso_ref_mag, pso_max_mag))
+    logger.info('Error. No comparison stars meet the criteria (%s > %f & %s < %f)!' %
+                (pso_ref_mag, pso_min_mag, pso_ref_mag, pso_max_mag))
     exit()
-logme('A total of %d comparison star(s) met the criteria (%s > %f & %s < %f)!' %
-      (len(comps), pso_ref_mag, pso_min_mag, pso_ref_mag, pso_max_mag))
+logger.info('A total of %d comparison star(s) met the criteria (%s > %f & %s < %f)!' %
+            (len(comps), pso_ref_mag, pso_min_mag, pso_ref_mag, pso_max_mag))
 # output objects to comps_fname in sextract input format
-comps_for_sex = comps[['raMean', 'decMean', 'objName', 'gPSFMag',  'rPSFMag',  'iPSFMag']]
+comps_for_sex = comps[['raMean', 'decMean',
+                       'objName', 'gPSFMag',  'rPSFMag',  'iPSFMag']]
 comps_for_sex.to_csv(comps_fname, sep=' ', index=False, header=False)
 
 # read ra/dec from target/comp stars list
@@ -327,18 +245,13 @@ for index, l in enumerate(lines):
     ra = float(spl[0])
     dec = float(spl[1])
     name = spl[2]
-    G = float(spl[3])    
+    G = float(spl[3])
     R = float(spl[4])
     I = float(spl[5])
     object_data.append(
         {'index': index, 'ra': ra, 'dec': dec, 'object_name': name, 'found': True, 'G': G, 'R': R, 'I': I})
-# add the asteroid to the object list
-# we don't know the ra/dec yet until we get the date/time from the FITS file
-target_index = index + 1
-object_data.append({'index': target_index, 'ra': '',
-                    'dec': '', 'object_name': args.asteroid, 'found': True, 'G': 0, 'R': 0, 'I': 0})
 
-logme('Searching for %d objects in sextracted data.' % len(object_data))
+logger.info('Searching for %d objects in sextracted data.' % len(object_data))
 ofile = file(counts_out_fname, 'wt')
 # look for target/comp matches in sextracted files
 sex_data = []
@@ -346,13 +259,8 @@ for image in image_data:
     num_found = 0
     lines = [s for s in file(image['sex'], 'rt') if len(s) > 2]
     # unless object is target, stop looking for it if it was not found in one of the images
-    for s in (x for x in object_data if (x['found'] == True or x['object_name'] == args.asteroid)):
+    for s in (x for x in object_data):
         found = False
-        # assign the asteroid ra/dec
-        if s['object_name'] == args.asteroid:
-            # get ra/dec of asteroid at the time image was taken
-            (s['ra'], s['dec']) = getAsteroidRaDec(
-                s['object_name'], image['dt_obs'])
         for l in lines:
             spl = l.split()
             ra = float(spl[0])
@@ -373,60 +281,10 @@ for image in image_data:
                 num_found += 1
                 found = True
                 break
-        # keep track of which objects were not found
-        # keep track of images in which target was not found
-        if found == False:
-            if s['object_name'] == args.asteroid:
-                logme('Target (%s) not found in %s.' %
-                      (s['object_name'], image['sex']))
-                # mark image accordingly
-                image['found_target'] = False
-            else:
-                logme('Object (%s) not found in %s.' %
-                      (s['object_name'], image['sex']))
-                s['found'] = False
     ofile.write('%s,%d\n' % (image['sex'], num_found))
-#    if num_found != len(object_data):
-#        logme('Warning! Found %s of %s objects in %s.' %
-#              (num_found, len(object_data), image['sex']))
 ofile.close()
-logme('Found %d observations of %d objects in %d sextracted files.' %
-      (len(sex_data), len(object_data), len(image_data)))
-
-# clean it up
-# remove photometry for objects that are not detected in every image
-# also, remove all data for images that did not identify the target
-for i in xrange(len(object_data) - 1, -1, -1):
-    s = object_data[i]
-    if s['found'] == False:
-        #        if s['object_name'] == '%d' % args.asteroid:
-        #            #            logme('Error. Target (%d) was not detected in every image.' %
-        #            #                  args.asteroid)
-        #            #            exit()
-        #        else:
-        logme('Object (%s) not detected in every image. Removed from list.' %
-              s['object_name'])
-        for j in xrange(len(sex_data) - 1, -1, -1):
-            o = sex_data[j]
-            if o['object_name'] == s['object_name']:
-                # logme('Removing photometric data for object (%s) from JD=%s.' %
-                #      (o['object_name'], o['jd']))
-                del sex_data[j]
-        del object_data[i]
-
-# clean it up
-# remove photometry for objects that are not detected in every image
-# also, remove all data for images that did not identify the target
-for image in image_data:
-    if image['found_target'] == False:
-        logme('Target (%s) was not detected in image (%s). Removing all photometry associated with image.' % (
-            args.asteroid, image['image']))
-        for j in xrange(len(sex_data) - 1, -1, -1):
-            o = sex_data[j]
-            if o['image'] == image['image']:
-                # logme('Removing photometric data for object (%s) from JD=%s.' %
-                #      (o['object_name'], o['jd']))
-                del sex_data[j]
+logger.info('Found %d observations of %d objects in %d sextracted files.' %
+            (len(sex_data), len(object_data), len(image_data)))
 
 # save compiled sex data to a new file
 ofile = file(targets_out_fname, 'wt')
@@ -477,8 +335,6 @@ if args.plot_apd:
         plt.xlabel('Aperture Diameter, D (pixels)')
         plt.ylabel('Ave. Instrumental Magnitude, m')
         plt.title(s['object_name'])
-        # plt.show(block=False)
-
 
 # plot target and comp stars in ds9
 if args.plot_ds9:
@@ -504,7 +360,8 @@ if args.plot_ds9:
     ds.set('frame first')
 
 if args.apd:
-    logme('Analyzing photometry for aperture diameter(s) = %s pixels.' % args.apd)
+    logger.info(
+        'Analyzing photometry for aperture diameter(s) = %s pixels.' % args.apd)
     apds = args.apd.split(',')
     apd_idxs = []
     for idx, apd in enumerate(apds):
@@ -513,7 +370,8 @@ if args.apd:
             if aperture == int(apds[idx]):
                 apd_idxs.append(index)
     if len(apd_idxs) != len(apds):
-        logme('Error. Could not match all apertures provided: %s.' % args.apd)
+        logger.info(
+            'Error. Could not match all apertures provided: %s.' % args.apd)
         os.sys.exit(1)
     # get color map
     cmap = plt.get_cmap('viridis')
@@ -542,60 +400,7 @@ if args.apd:
         plt.xlabel('Julian Date')
         plt.ylabel('Instrumental Magnitude, m')
         plt.legend(loc='upper left')
-        object_name = s['object_name']
-        if s['index'] == target_index:
-            object_name = 'Target: ' + s['object_name']
-        else:
-            object_name = 'Comp Star: ' + s['object_name']
+        object_name = 'Object: ' + s['object_name']
         plt.title(object_name)
-        # plt.show(block=False)
-
-    # get average of comps
-    fig = plt.figure(figure_count)
-    figure_count += 1
-    cid = fig.canvas.mpl_connect('button_press_event', onclick_mag_vs_JD)
-    for idx, apd_index in enumerate(apd_idxs):
-        filtered_array = np.array(filter(lambda row: row[0] != target_index, data))[
-            :, [jd_index, mag_start_index + apd_index, mag_start_index + len(apertures) + apd_index]]
-        sorted_filtered_array = filtered_array[np.lexsort(
-            np.transpose(filtered_array)[::-1])]
-        df = pd.DataFrame(sorted_filtered_array, columns=[
-                          'jd', 'mag', 'mag_err'])
-        comp_count = (df.mag).groupby(df.jd).count().values[0]
-        ave_comp_magnitudes = (df.mag).groupby(df.jd).mean().values
-        ave_comp_magnitude_errors = np.sqrt(
-            (df.mag_err*df.mag_err).groupby(df.jd).sum().values)/comp_count
-        jds = df.groupby(df.jd).mean().index.values
-        plt.errorbar(jds, ave_comp_magnitudes, yerr=ave_comp_magnitude_errors, marker='o',
-                     color=colors[idx], elinewidth=0.5, linestyle='None', markersize=3, label='%s px' % apds[idx])
-    plt.gca().invert_yaxis()
-    plt.legend(loc='upper left')
-    plt.xlabel('Julian Date')
-    plt.ylabel('Instrumental Magnitude, m')
-    plt.title('Comp Star Average')
-    # plt.show(block=False)
-
-    fig = plt.figure(figure_count)
-    figure_count += 1
-    cid = fig.canvas.mpl_connect('button_press_event', onclick_mag_vs_JD)
-    for idx, apd_index in enumerate(apd_idxs):
-        # plot target-comp ave instr magnitude
-        target_magnitudes = np.array(filter(lambda row: row[0] == target_index, data))[
-            :, [jd_index, mag_start_index + apd_index]]
-        target_magnitudes = target_magnitudes[np.lexsort(
-            np.transpose(target_magnitudes)[::-1])]
-        plt.errorbar(target_magnitudes[:, 0], target_magnitudes[:, 1] - np.transpose(ave_comp_magnitudes), marker='o',
-                     color=colors[idx], elinewidth=0.5, linestyle='None', markersize=3, label='%s px' % apds[idx])
-    plt.gca().invert_yaxis()
-    plt.legend(loc='upper left')
-    plt.xlabel('Julian Date')
-    plt.ylabel('Instrumental Magnitude, m')
-    plt.title('Target (%s) / Comp Differential' % args.asteroid)
-    jds = target_magnitudes[:, 0]
-    mags = target_magnitudes[:, 1] - np.transpose(ave_comp_magnitudes)
-    if args.labels:
-        for x, y in zip(jds, mags[0]):
-            plt.annotate('%s' % jdToYYMMDD_HHMMSS(x), xy=(x, y))
-    # plt.show(block=False)
 
 plt.show()

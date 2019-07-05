@@ -18,11 +18,11 @@ public class Horizons {
     static final String phaseAngName = "S-T-O";
     static final String rightAscensionName = "R.A._(ICRF/J2000.0)";
     static final String declinationName = "DEC_(ICRF/J2000.0)";    
-    static final double apMagMin = 18.0;	//only process days where apparent magnitude is brighter than this number	
-    static final int stepSizeMin = 5;	//time step size in minutes of ephemeris 2018/08/25
+    static final double apMagMin = 17.0;	//only process days where apparent magnitude is brighter than this number	
+    static final int stepSizeMin = 15;	//time step size in minutes of ephemeris 2018/08/25
 //	static final LocalDateTime dtStart = LocalDateTime.of(2018, 8, 25, 9, 55); //reference start date (e.g. beginning of IRTF session)
 //	static final LocalDateTime dtStart = LocalDateTime.of(2018, 9, 20, 6, 45); //reference start date (e.g. beginning of IRTF session)
-	static final LocalDateTime dtStart = LocalDateTime.of(2018, 10, 24, 4, 35); //reference start date (e.g. beginning of IRTF session)
+	static final LocalDateTime dtStart = LocalDateTime.of(2020, 01, 01, 0, 0); //reference start date (e.g. beginning of IRTF session)
 
 	static String cookieFile = "_Horizons.txt";
 	

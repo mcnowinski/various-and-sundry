@@ -8,17 +8,17 @@ public class ParseHorizons {
 
     public static void main(String[] args) {        
         try {
-        	FileWriter indexFile = new FileWriter("C:\\Users\\Me\\Desktop\\asteroid_master_index.csv");
-        	FileWriter spkidFile = new FileWriter("C:\\Users\\Me\\Desktop\\asteroid_spk_id.csv");
-        	FileWriter desigFile = new FileWriter("C:\\Users\\Me\\Desktop\\asteroid_names_spk_id.csv");
+        	FileWriter indexFile = new FileWriter("C:\\Users\\mcnow\\Desktop\\asteroid_master_index.csv");
+        	FileWriter spkidFile = new FileWriter("C:\\Users\\mcnow\\Desktop\\asteroid_spk_id.csv");
+        	FileWriter desigFile = new FileWriter("C:\\Users\\mcnow\\Desktop\\asteroid_names_spk_id.csv");
         	
-            File inputFile = new File("C:\\Users\\Me\\Desktop\\MI.DB");
+            File inputFile = new File("C:\\Users\\mcnow\\Desktop\\MI.DB");
             Scanner sc = new Scanner(inputFile);
             while(sc.hasNextLine()){
                 String line = sc.nextLine();
                 String[] fields = line.split(";");
                 int id = Integer.parseInt(fields[0]);
-                if(id < 900000) { //asteroids only, comets >= 900000
+                if(id < 90000000) { //asteroids only, comets >= 90000000
 	                String name = fields[1];
 	                String spk_id_string = fields[2];
 	                String[] spk_ids = spk_id_string.split(",");
