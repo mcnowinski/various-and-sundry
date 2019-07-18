@@ -68,7 +68,7 @@ pso_ref_mag = 'rPSFMag'
 # panstarrs max magnitude
 pso_max_mag = 15
 # panstarrs min magnitude
-pso_min_mag = 0
+pso_min_mag = 10
 # figure count
 figure_count = 1
 
